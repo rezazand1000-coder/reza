@@ -1,0 +1,90 @@
+//BourseXtreme
+//Anonymous
+if (sessionStorage.getItem("TablokhaniToTSETMC") === null)
+{
+	mw.InstHistory = {}
+	sessionStorage.setItem("TablokhaniToTSETMC", "Set");
+	
+	function fetchData(url)
+	{
+		const xhr = new XMLHttpRequest();
+		xhr.open('GET', url, false);
+		xhr.send();
+		return xhr.responseText;
+	}
+	
+	function parseData(data, isClientFilter)
+	{
+		const rows = data.split("@");
+		const result = {};
+		let insCode, cols, offset, days;
+		for (let i = 0; i < rows.length; i++)
+		{
+			cols = rows[i].slice(0, -1)
+				.split(";");
+			for (let q = 0; q < cols.length; q++)
+			{
+				const items = cols[q].split(",");
+				if (items.length == (isClientFilter ? 10 : 13))
+				{
+					insCode = items[0];
+					offset = 1;
+				}
+				else
+				{
+					offset = 0;
+				}
+				days = items[offset];
+				if (typeof result[insCode] == "undefined") result[insCode] = [];
+				if (typeof result[insCode][days] == "undefined") result[insCode][days] = {};
+				if (isClientFilter)
+				{
+					result[insCode][days]['ct'] = {
+						'Buy_CountI': parseFloat(items[offset + 1])
+						, 'Buy_CountN': parseFloat(items[offset + 2])
+						, 'Buy_I_Volume': parseFloat(items[offset + 3])
+						, 'Buy_N_Volume': parseFloat(items[offset + 4])
+						, 'Sell_CountI': parseFloat(items[offset + 5])
+						, 'Sell_CountN': parseFloat(items[offset + 6])
+						, 'Sell_I_Volume': parseFloat(items[offset + 7])
+						, 'Sell_N_Volume': parseFloat(items[offset + 8])
+					};
+				}
+				else
+				{
+					result[insCode][days] = {
+						'PriceFirst': parseFloat(items[offset + 1])
+						, 'DEven': parseFloat(items[offset + 2])
+						, 'PClosing': parseFloat(items[offset + 3])
+						, 'PDrCotVal': parseFloat(items[offset + 4])
+						, 'ZTotTran': parseFloat(items[offset + 5])
+						, 'QTotTran5J': parseFloat(items[offset + 6])
+						, 'QTotCap': parseFloat(items[offset + 7])
+						, 'PriceChange': parseFloat(items[offset + 8])
+						, 'PriceMin': parseFloat(items[offset + 9])
+						, 'PriceMax': parseFloat(items[offset + 10])
+						, 'PriceYesterday': parseFloat(items[offset + 11])
+					};
+				}
+			}
+		}
+		return result;
+	}
+	const clientFilterData = fetchData("https://api4.tablokhani.com/Process/oldClientFilter?v=W1kCuG");
+	const clientFilterArray = parseData(clientFilterData, true);
+	const tradeRowsPart1 = fetchData("https://api.tablokhani.com/Process/oldTradeRows300Part1?v=BqrdcS");
+	const tradeRowsPart2 = fetchData("https://api.tablokhani.com/Process/oldTradeRows300Part2?v=BqrdcS");
+	const combinedTradeRows = tradeRowsPart1 + tradeRowsPart2;
+	const tradeRowsArray = parseData(combinedTradeRows, false);
+	for (const instrumentCode in tradeRowsArray)
+	{
+		for (const tradingDay in tradeRowsArray[instrumentCode])
+		{
+			if (typeof clientFilterArray[instrumentCode] != "undefined" && typeof clientFilterArray[instrumentCode][tradingDay] != "undefined")
+			{
+				tradeRowsArray[instrumentCode][tradingDay]['ct'] = clientFilterArray[instrumentCode][tradingDay]['ct'];
+			}
+		}
+	}
+	mw.InstHistory = tradeRowsArray;
+}

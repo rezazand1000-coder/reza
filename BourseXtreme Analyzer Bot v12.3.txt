@@ -1,0 +1,5120 @@
+//BourseXtreme
+//Anonymous
+//----------------------------------------نام نمادهای دلخواه خود را جهت ارسال اطلاعات به تلگرام وارد کنید
+var Symbol1 = "فولاد";
+var Symbol2 = "فملی";
+var Symbol3 = "شستا";
+var Symbol4 = "غکورش"
+var Symbol5 = "خزامیا";
+//----------------------------------------توکن ربات و آی‌دی عددی تلگرام خود را وارد کنید
+let Bot_Token = "- - - - - -";
+let Chat_ID = "- - - - - -";
+//----------------------------------------
+if (sessionStorage.getItem("TablokhaniToTSETMC") === null)
+{
+	mw.InstHistory = {}
+	sessionStorage.setItem("TablokhaniToTSETMC", "Set");
+	
+	function fetchData(url)
+	{
+		const xhr = new XMLHttpRequest();
+		xhr.open('GET', url, false);
+		xhr.send();
+		return xhr.responseText;
+	}
+	
+	function parseData(data, isClientFilter)
+	{
+		const rows = data.split("@");
+		const result = {};
+		let insCode, cols, offset, days;
+		for (let i = 0; i < rows.length; i++)
+		{
+			cols = rows[i].slice(0, -1)
+				.split(";");
+			for (let q = 0; q < cols.length; q++)
+			{
+				const items = cols[q].split(",");
+				if (items.length == (isClientFilter ? 10 : 13))
+				{
+					insCode = items[0];
+					offset = 1;
+				}
+				else
+				{
+					offset = 0;
+				}
+				days = items[offset];
+				if (typeof result[insCode] == "undefined") result[insCode] = [];
+				if (typeof result[insCode][days] == "undefined") result[insCode][days] = {};
+				if (isClientFilter)
+				{
+					result[insCode][days]['ct'] = {
+						'Buy_CountI': parseFloat(items[offset + 1])
+						, 'Buy_CountN': parseFloat(items[offset + 2])
+						, 'Buy_I_Volume': parseFloat(items[offset + 3])
+						, 'Buy_N_Volume': parseFloat(items[offset + 4])
+						, 'Sell_CountI': parseFloat(items[offset + 5])
+						, 'Sell_CountN': parseFloat(items[offset + 6])
+						, 'Sell_I_Volume': parseFloat(items[offset + 7])
+						, 'Sell_N_Volume': parseFloat(items[offset + 8])
+					};
+				}
+				else
+				{
+					result[insCode][days] = {
+						'PriceFirst': parseFloat(items[offset + 1])
+						, 'DEven': parseFloat(items[offset + 2])
+						, 'PClosing': parseFloat(items[offset + 3])
+						, 'PDrCotVal': parseFloat(items[offset + 4])
+						, 'ZTotTran': parseFloat(items[offset + 5])
+						, 'QTotTran5J': parseFloat(items[offset + 6])
+						, 'QTotCap': parseFloat(items[offset + 7])
+						, 'PriceChange': parseFloat(items[offset + 8])
+						, 'PriceMin': parseFloat(items[offset + 9])
+						, 'PriceMax': parseFloat(items[offset + 10])
+						, 'PriceYesterday': parseFloat(items[offset + 11])
+					};
+				}
+			}
+		}
+		return result;
+	}
+	const clientFilterData = fetchData("https://api4.tablokhani.com/Process/oldClientFilter?v=W1kCuG");
+	const clientFilterArray = parseData(clientFilterData, true);
+	const tradeRowsPart1 = fetchData("https://api.tablokhani.com/Process/oldTradeRows300Part1?v=BqrdcS");
+	const tradeRowsPart2 = fetchData("https://api.tablokhani.com/Process/oldTradeRows300Part2?v=BqrdcS");
+	const combinedTradeRows = tradeRowsPart1 + tradeRowsPart2;
+	const tradeRowsArray = parseData(combinedTradeRows, false);
+	for (const instrumentCode in tradeRowsArray)
+	{
+		for (const tradingDay in tradeRowsArray[instrumentCode])
+		{
+			if (typeof clientFilterArray[instrumentCode] != "undefined" && typeof clientFilterArray[instrumentCode][tradingDay] != "undefined")
+			{
+				tradeRowsArray[instrumentCode][tradingDay]['ct'] = clientFilterArray[instrumentCode][tradingDay]['ct'];
+			}
+		}
+	}
+	mw.InstHistory = tradeRowsArray;
+}
+//----------------------------------------
+function ihGolden(_adj = 1)
+{
+	if (typeof [ih].deleteZeroRows == 'undefined')
+	{
+		let i = 0;
+		while (i < [ih].length)[ih][i].QTotCap == 0 ? [ih].splice(i, 1) : i++;
+                [ih].deleteZeroRows = 1;
+		let AdjArr = [];
+		if (_adj)
+		{
+			i = [ih].length - 2;
+			while (i > 0)
+			{
+				if ([ih][i + 1].PClosing != [ih][i].PriceYesterday)
+				{
+					AdjArr.push(i);
+					var dif = ([ih][i + 1].PClosing / [ih][i].PriceYesterday);
+					AdjArr.push(dif);
+					for (let j = i + 1; j < [ih].length; j++)
+					{
+                                                [ih][j].PriceFirst = Math.round([ih][j].PriceFirst / dif);
+                                                [ih][j].PClosing = Math.round([ih][j].PClosing / dif);
+                                                [ih][j].PDrCotVal = Math.round([ih][j].PDrCotVal / dif);
+                                                [ih][j].PriceMin = Math.round([ih][j].PriceMin / dif);
+                                                [ih][j].PriceMax = Math.round([ih][j].PriceMax / dif);
+                                                [ih][j].PriceYesterday = Math.round([ih][j].PriceYesterday / dif);
+					}
+				}
+				i--;
+			}
+		}
+                [ih].AdjArr = AdjArr;
+	}
+	if ([ih][0].ZTotTran != (tno) || [ih][0].QTotCap != (tval) || [ih][0].PDrCotVal != (pl) || [ih][0].PClosing != (pc))
+	{
+		if (typeof [ih].fixed == 'undefined')
+		{
+                        [ih].unshift(
+			{});
+                        [ih].fixed = 1;
+		}
+                [ih][0].PClosing = (pc);
+                [ih][0].PDrCotVal = (pl);
+                [ih][0].ZTotTran = (tno);
+                [ih][0].QTotTran5J = (tvol);
+                [ih][0].QTotCap = (tval);
+                [ih][0].PriceMin = (pmin);
+                [ih][0].PriceMax = (pmax);
+                [ih][0].PriceYesterday = (py);
+                [ih][0].PriceFirst = (pf);
+	}
+}
+//----------------------------------------Run
+true === function()
+{
+	if (!((l18))
+		.match('[0-9]') && (cs) != 68 && (l18)[(l18)
+			.length - 1] != 'ح')
+	{
+		ihGolden();
+		var Notif = "عدم نیاز به تعدیل 🟢";
+		if ([ih].AdjArr != '') Notif = "تعدیل شده✔️";
+		var score = 0;
+		var Pscore = 0;
+		var CPscore = 0;
+		var Trendscore = 0;
+		var Weightscore = 0;
+		var starplus = "";
+		var starplus1 = 0;
+		var star = "";
+		//*******************************************تابع اتصال به تلگرام*******************************************
+		var TseHitSender = function(txtmessage)
+		{
+			const Http = new XMLHttpRequest();
+			let botToken = Bot_Token;
+			let ChatID = Chat_ID;
+			var url = 'https://tseapi.boursextreme.workers.dev/bot' + botToken + '/sendMessage?text=' + txtmessage + '&chat_id=' + ChatID + "&parse_mode=Markdown&disable_web_page_preview=True";
+			Http.open("GET", url);
+			Http.send();
+		}
+		//*******************************************دسته بندی*******************************************
+		const bazarr = {
+			0: "عمومی - مشترک بين بورس و فرابورس"
+			, 1: "بورس"
+			, 2: "فرابورس"
+			, 3: "آتی"
+			, 4: "پایه فرابورس"
+			, 5: "پایه فرابورس (منتشر نمی شود)"
+			, 6: "بورس انرژی"
+			, 7: "بورس کالا"
+		}
+		//*******************************************کد گروه ها*******************************************
+		var G_Code = Sectors[Sectors.findIndex(arr => arr.includes(String(((cs) < 10 ? '0' : '') + (cs))))][1];
+		//*******************************************تابع جداساز اعداد*******************************************
+		function numberWithCommas(x)
+		{
+			return x.toString()
+				.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+		}
+		//*******************************************ارزش بازار*******************************************
+		var ArzeshB1 = ""
+		var ArzeshB2 = (((z) * (pc)) / 10)
+		if (ArzeshB2 >= 1000000000000) ArzeshB1 = (ArzeshB2 / 1000000000000)
+			.toFixed(3) + " همت"
+		else if (ArzeshB2 < 1000000000000, ArzeshB2 >= 1000000000) ArzeshB1 = (ArzeshB2 / 1000000000)
+			.toFixed(3) + " میلیارد تومان"
+		else if (ArzeshB2 < 1000000000, ArzeshB2 >= 1000000) ArzeshB1 = (ArzeshB2 / 1000000)
+			.toFixed(3) + " میلیون تومان"
+		else if (ArzeshB2 < 1000000) ArzeshB1 = (ArzeshB2 / 1000)
+			.toFixed(3) + " هزار تومان"
+		//*******************************************اندازه شرکت*******************************************
+		var andazesherkat = ""
+		if ((z) * (pc) / 10 > 100000000000000) andazesherkat = " بسیار بزرگ";
+		else if ((z) * (pc) / 10 > 30000000000000) andazesherkat = " بزرگ";
+		else if ((z) * (pc) / 10 > 10000000000000) andazesherkat = " متوسط";
+		else if ((z) * (pc) / 10 > 1000000000000) andazesherkat = " کوچک";
+		else if ((z) * (pc) / 10 < 1000000000000) andazesherkat = " بسیار کوچک";
+		//*******************************************تابع EPS*******************************************
+		var Zian = ""
+		if ((eps) < 0)
+		{
+			Zian = "  (شرکت زیان‌ده)  "
+		}
+		else if ((eps) > 0)
+		{
+			Zian = ""
+		}
+		else
+		{
+			Zian = ""
+		}
+		//*******************************************آخرین قیمت*******************************************
+		var AkharinGH = ((plp))
+		if (AkharinGH < 0)
+		{
+			var AkharinGH1 = " 🔴"
+		}
+		else if (AkharinGH > 0)
+		{
+			var AkharinGH1 = " 🟢"
+		}
+		else
+		{
+			var AkharinGH1 = ""
+		}
+		//*******************************************قیمت پایانی*******************************************
+		var GHPayani = ((pcp))
+		if (GHPayani < 0)
+		{
+			var GHPayani1 = " 🔴"
+		}
+		else if (GHPayani > 0)
+		{
+			var GHPayani1 = " 🟢"
+		}
+		else
+		{
+			var GHPayani1 = ""
+		}
+		//*******************************************بیشترین*******************************************
+		var BishtarinGh = 100 * ((pmax) - (py)) / (py);
+		//*******************************************کمترین*******************************************
+		var KamtarinGh = 100 * ((pmin) - (py)) / (py);
+		//*******************************************تابلو*******************************************
+		//سرانه خرید حقیقی
+		var VorudHaghighi = (((ct)
+			.Buy_I_Volume * (pc) * 10) / 100) / 1000000000;
+		var saraneh_kh = (((ct)
+			.Buy_I_Volume * (tval)) / ((tvol) * (ct)
+			.Buy_CountI));
+		var saraneh_kh1 = ((saraneh_kh / 1000000) / 10)
+			.toFixed(2);
+		//سرانه فروش حقیقی
+		var KhorujHaghighi = (((ct)
+			.Sell_I_Volume * (pc) * 10) / 100) / 1000000000;
+		var saraneh_f = (((ct)
+			.Sell_I_Volume * (tval)) / ((tvol) * (ct)
+			.Sell_CountI));
+		var saraneh_f1 = ((saraneh_f / 1000000) / 10)
+			.toFixed(2);
+		//قدرت حقیقی
+		var ghodrat1 = (((saraneh_kh1) / (saraneh_f1) * 100) / 100)
+			.toFixed(2);
+		//سرانه خرید حقوقی
+		var VorudHoghughi = (((ct)
+			.Buy_N_Volume * (pc) * 10) / 100) / 1000000000;
+		var SaranekhHo = (((ct)
+			.Buy_N_Volume * (tval)) / ((tvol) * (ct)
+			.Buy_CountN));
+		var SaraneHo1 = ((SaranekhHo / 1000000) / 10)
+			.toFixed(2);
+		//سرانه فروش حقوقی
+		var KhorujHoghughi = (((ct)
+			.Sell_N_Volume * (pc) * 10) / 100) / 1000000000;
+		var SaranefHo = (((ct)
+			.Sell_N_Volume * (tval)) / ((tvol) * (ct)
+			.Sell_CountN));
+		var SaraneHo2 = ((SaranefHo / 1000000) / 10)
+			.toFixed(2);
+		//قدرت حقوقی
+		var GhodtarHo = (((SaraneHo1) / (SaraneHo2) * 100) / 100)
+			.toFixed(2);
+		//سرانه های بالا
+		var SaraneKhHa3 = (([is50] * [is1]) / ([is5] * [is58]))
+		var TSaraneKhHa3 = ((SaraneKhHa3 / 1000000) / 10)
+			.toFixed(2)
+		var SaraneKhHa12 = (([is51] * [is2]) / ([is6] * [is59]))
+		var TSaraneKhHa12 = ((SaraneKhHa12 / 1000000) / 10)
+			.toFixed(2)
+		var SaraneFHa3 = (([is70] * [is1]) / ([is5] * [is78]))
+		var TSaraneFHa3 = ((SaraneFHa3 / 1000000) / 10)
+			.toFixed(2)
+		var SaraneFHa12 = (([is71] * [is2]) / ([is6] * [is79]))
+		var TSaraneFHa12 = ((SaraneFHa12 / 1000000) / 10)
+			.toFixed(2)
+		var SaraneKhHo3 = (([is54] * [is1]) / ([is5] * [is62]))
+		var TSaraneKhHo3 = ((SaraneKhHo3 / 1000000) / 10)
+			.toFixed(2)
+		var SaraneKhHo12 = (([is55] * [is2]) / ([is6] * [is63]))
+		var TSaraneKhHo12 = ((SaraneKhHo12 / 1000000) / 10)
+			.toFixed(2)
+		var SaraneFHo3 = (([is74] * [is1]) / ([is5] * [is82]))
+		var TSaraneFHo3 = ((SaraneFHo3 / 1000000) / 10)
+			.toFixed(2)
+		var SaraneFHo12 = (([is75] * [is2]) / ([is6] * [is83]))
+		var TSaraneFHo12 = ((SaraneFHo12 / 1000000) / 10)
+			.toFixed(2)
+		//قدرت خریدار به فروشنده حقیقی
+		var GhodratT;
+		if (ghodrat1 < 1.00)
+		{
+			GhodratT = "(" + '*' + ghodrat1 + '*' + ")" + " 🔴";
+		}
+		else if (ghodrat1 >= 1.00)
+		{
+			GhodratT = "(" + '*' + ghodrat1 + '*' + ")" + " 🟢";
+		}
+		//------3
+		MGHHa3 = ((TSaraneKhHa3) / (TSaraneFHa3) * 100) / 100
+		//------12
+		MGHHa12 = ((TSaraneKhHa12) / (TSaraneFHa12) * 100) / 100
+		//قدرت خریدار به فروشنده حقوقی
+		var GhodtarHoG;
+		if (GhodtarHo < 1.00)
+		{
+			GhodtarHoG = "(" + GhodtarHo + ")" + " 🔴";
+		}
+		else if (GhodtarHo >= 1.00)
+		{
+			GhodtarHoG = "(" + GhodtarHo + ")" + " 🟢";
+		}
+		//------3
+		MGHHo3 = ((TSaraneKhHo3) / (TSaraneFHo3) * 100) / 100
+		//------12
+		MGHHo12 = ((TSaraneKhHo12) / (TSaraneFHo12) * 100) / 100
+		//درصد خریدهای حقیقی و حقوقی
+		var DKhHaghighi = ((100 * (ct)
+				.Buy_I_Volume) / (tvol))
+			.toFixed(1)
+		var DFHaghighi = ((100 * (ct)
+				.Sell_I_Volume) / (tvol))
+			.toFixed(1)
+		var BHaghighi1 = ((ct)
+			.Buy_I_Volume - (ct)
+			.Sell_I_Volume)
+		var BHaghighi = (DKhHaghighi - DFHaghighi)
+			.toFixed(1) + "%"
+		var DKhHoghughi = ((100 * (ct)
+				.Buy_N_Volume) / (tvol))
+			.toFixed(1)
+		var DFHoghughi = ((100 * (ct)
+				.Sell_N_Volume) / (tvol))
+			.toFixed(1)
+		var BHoghughi1 = ((ct)
+			.Buy_N_Volume - (ct)
+			.Sell_N_Volume)
+		var BHoghughi = (DKhHoghughi - DFHoghughi)
+			.toFixed(1) + "%"
+		//ورود و خروج پول
+		var IOMoney = "";
+		var IOMoney1 = Math.round(((ct)
+			.Buy_I_Volume - (ct)
+			.Sell_I_Volume) * (pl) * 10) / 100;
+		if (IOMoney1 > 0)
+		{
+			if (IOMoney1 >= 1000000000) IOMoney = "ورود پول " + (IOMoney1 / 1000000000)
+				.toFixed(3) + " ميليارد تومان 🟢";
+			else if (IOMoney1 < 1000000000, IOMoney1 >= 1000000) IOMoney = "ورود پول " + (IOMoney1 / 1000000)
+				.toFixed(3) + " ميليون تومان 🟢";
+			else if (IOMoney1 < 1000000) IOMoney = "ورود پول " + (IOMoney1 / 1000)
+				.toFixed(3) + " هزار تومان 🟢";
+			score += 1
+		}
+		//------
+		else if (IOMoney1 < 0)
+		{
+			if (IOMoney1 <= -1000000000) IOMoney = "خروج پول " + (IOMoney1 / (-1000000000))
+				.toFixed(3) + " ميليارد تومان 🔴";
+			else if (IOMoney1 > -1000000000, IOMoney1 <= -1000000) IOMoney = "خروج پول " + ((IOMoney1 / 1000000) * (-1))
+				.toFixed(3) + " ميليون تومان 🔴";
+			else if (IOMoney1 > -1000000) IOMoney = "خروج پول " + ((IOMoney1 / 1000) * (-1))
+				.toFixed(3) + " هزار تومان 🔴";
+			score -= 1
+		}
+		//------3
+		IOMoney3mah = "";
+		var IOMoney3mah1 = Math.round(([is50] - [is70]) * (([is1] / [is5]) * 10) / 100)
+		if (IOMoney3mah1 > 0)
+		{
+			if (IOMoney3mah1 >= 1000000000) IOMoney3mah = "ورود پول " + (IOMoney3mah1 / 1000000000)
+				.toFixed(3) + " ميليارد تومان 🟢";
+			else if (IOMoney3mah1 < 1000000000, IOMoney3mah1 >= 1000000) IOMoney3mah = "ورود پول " + (IOMoney3mah1 / 1000000)
+				.toFixed(3) + " ميليون تومان 🟢";
+			else if (IOMoney3mah1 < 1000000) IOMoney3mah = "ورود پول " + (IOMoney3mah1 / 1000)
+				.toFixed(3) + " هزار تومان 🟢";
+			score += 1
+		}
+		//------
+		else if (IOMoney3mah1 < 0)
+		{
+			if (IOMoney3mah1 <= -1000000000) IOMoney3mah = "خروج پول " + (IOMoney3mah1 / (-1000000000))
+				.toFixed(3) + " ميليارد تومان 🔴";
+			else if (IOMoney3mah1 > -1000000000, IOMoney3mah1 <= -1000000) IOMoney3mah = "خروج پول " + ((IOMoney3mah1 / 1000000) * (-1))
+				.toFixed(3) + " ميليون تومان 🔴";
+			else if (IOMoney3mah1 > -1000000) IOMoney3mah = "خروج پول " + ((IOMoney3mah1 / 1000) * (-1))
+				.toFixed(3) + " هزار تومان 🔴";
+			score -= 1
+		}
+		//------12
+		IOMoney12mah = "";
+		var IOMoney12mah1 = Math.round(([is51] - [is71]) * (([is2] / [is6]) * 10) / 100)
+		if (IOMoney12mah1 > 0)
+		{
+			if (IOMoney12mah1 >= 1000000000) IOMoney12mah = "ورود پول " + (IOMoney12mah1 / 1000000000)
+				.toFixed(3) + " ميليارد تومان 🟢";
+			else if (IOMoney12mah1 < 1000000000, IOMoney12mah1 >= 1000000) IOMoney12mah = "ورود پول " + (IOMoney12mah1 / 1000000)
+				.toFixed(3) + " ميليون تومان 🟢";
+			else if (IOMoney12mah1 < 1000000) IOMoney12mah = "ورود پول " + (IOMoney12mah1 / 1000)
+				.toFixed(3) + " هزار تومان 🟢";
+			score += 1
+		}
+		//------
+		else if (IOMoney12mah1 < 0)
+		{
+			if (IOMoney12mah1 <= -1000000000) IOMoney12mah = "خروج پول " + (IOMoney12mah1 / (-1000000000))
+				.toFixed(3) + " ميليارد تومان 🔴";
+			else if (IOMoney12mah1 > -1000000000, IOMoney12mah1 <= -1000000) IOMoney12mah = "خروج پول " + ((IOMoney12mah1 / 1000000) * (-1))
+				.toFixed(3) + " ميليون تومان 🔴";
+			else if (IOMoney12mah1 > -1000000) IOMoney12mah = "خروج پول " + ((IOMoney12mah1 / 1000) * (-1))
+				.toFixed(3) + " هزار تومان 🔴";
+			score -= 1
+		}
+		//*******************************************تابح حجم مبنا*******************************************
+		var takmilH = ""
+		if ((tvol) < (bvol))
+		{
+			takmilH = "";
+		}
+		else if ((bvol) == 1)
+		{
+			takmilH = "";
+		}
+		else if ((tvol) > (bvol))
+		{
+			takmilH = " (تکمیل حجم مبنا)";
+		}
+		//*******************************************محاسبه حجمها*******************************************
+		var HajmHistogram = ""
+		if ((pf) < (pl))
+		{
+			HajmHistogram = "سبز"
+			score += 1
+		}
+		else if ((pf) > (pl))
+		{
+			HajmHistogram = "قرمز"
+			score -= 1
+		}
+		else
+		{
+			HajmHistogram = "➖"
+		}
+		
+		function AvgVol(start, period)
+		{
+			let len = [ih].length;
+			if (period > len) return NaN;
+			let zeroday = 0;
+			let sum = 0;
+			let i = 0;
+			for (i = start; i < (start + period + zeroday); i++)
+			{
+				if ([ih][i].QTotTran5J !== 0) sum += [ih][i].QTotTran5J;
+				else if (((zeroday++) + period) > len) return NaN;
+			}
+			if (i + zeroday < period) return NaN;
+			return (sum / period);
+		}
+		EbHafte = Math.round(((tvol) / AvgVol(1, 5)) * 100) / 100;
+		EbHafte11 = Math.round(AvgVol(1, 5))
+		EbMah = Math.round(((tvol) / AvgVol(1, 20)) * 100) / 100;
+		EbMah11 = Math.round(AvgVol(1, 20))
+		Eb3Mah = Math.round(((tvol) / [is5]) * 100) / 100;
+		Eb12Mah = Math.round(((tvol) / [is6]) * 100) / 100;
+		//------
+		if ((EbHafte) < 1 && HajmHistogram == "قرمز")
+		{
+			score -= 3
+		}
+		else if ((EbHafte) >= 1 && (EbHafte) < 2 && HajmHistogram == "سبز")
+		{
+			score += 1
+		}
+		else if ((EbHafte) >= 2 && (EbHafte) < 3 && HajmHistogram == "سبز")
+		{
+			score += 2
+		}
+		else if ((EbHafte) >= 3 && HajmHistogram == "سبز")
+		{
+			score += 3
+		}
+		//------
+		if ((EbMah) < 1 && HajmHistogram == "قرمز")
+		{
+			score -= 4
+		}
+		else if ((EbMah) >= 1 && (EbMah) < 2 && HajmHistogram == "سبز")
+		{
+			score += 2
+		}
+		else if ((EbMah) >= 2 && (EbMah) < 3 && HajmHistogram == "سبز")
+		{
+			score += 3
+		}
+		else if ((EbMah) >= 3 && HajmHistogram == "سبز")
+		{
+			score += 4
+		}
+		//------
+		if ((Eb3Mah) < 1 && HajmHistogram == "قرمز")
+		{
+			score -= 5
+		}
+		else if ((Eb3Mah) >= 1 && (Eb3Mah) < 2 && HajmHistogram == "سبز")
+		{
+			score += 3
+		}
+		else if ((Eb3Mah) >= 2 && (Eb3Mah) < 3 && HajmHistogram == "سبز")
+		{
+			score += 4
+		}
+		else if ((Eb3Mah) >= 3 && HajmHistogram == "سبز")
+		{
+			score += 5
+		}
+		//------
+		if ((Eb12Mah) < 1 && HajmHistogram == "قرمز")
+		{
+			score -= 6
+		}
+		else if ((Eb12Mah) >= 1 && (Eb12Mah) < 2 && HajmHistogram == "سبز")
+		{
+			score += 4
+		}
+		else if ((Eb12Mah) >= 2 && (Eb12Mah) < 3 && HajmHistogram == "سبز")
+		{
+			score += 5
+		}
+		else if ((Eb12Mah) >= 3 && HajmHistogram == "سبز")
+		{
+			score += 6
+		}
+		//*******************************************ارزش معاملات*******************************************
+		var Arzesh1 = ""
+		var ArzeshM1 = (Math.round((tval) * 10) / 100)
+		if (ArzeshM1 > 0)
+		{
+			if (ArzeshM1 >= 1000000000) Arzesh1 = (ArzeshM1 / 1000000000)
+				.toFixed(3) + " ب"
+			else if (ArzeshM1 < 1000000000, ArzeshM1 >= 1000000) Arzesh1 = (ArzeshM1 / 1000000)
+				.toFixed(3) + " م"
+			else if (ArzeshM1 < 1000000) Arzesh1 = (ArzeshM1 / 1000)
+				.toFixed(3) + " ه"
+		}
+		//------
+		function ArzeshMoa(start, period)
+		{
+			let len = [ih].length;
+			if (period > len) return NaN;
+			let zeroday = 0;
+			let sum = 0;
+			let i = 0;
+			for (i = start; i < (start + period + zeroday); i++)
+			{
+				if ([ih][i].QTotCap !== 0) sum += [ih][i].QTotCap;
+				else if (((zeroday++) + period) > len) return NaN;
+			}
+			if (i + zeroday < period) return NaN;
+			return (sum / period);
+		}
+		//------
+		var AzMah5 = parseFloat((((tval) / ArzeshMoa(1, 5)) * 100) / 100)
+			.toFixed(2);
+		var ArzeshMoamelat1 = (Math.round((ArzeshMoa(1, 5)) * 10) / 100)
+		var ArzeshMoamelatA1 = ""
+		if (ArzeshMoamelat1 > 0)
+		{
+			if (ArzeshMoamelat1 >= 1000000000) ArzeshMoamelatA1 = (ArzeshMoamelat1 / 1000000000)
+				.toFixed(3) + " ب"
+			else if (ArzeshMoamelat1 < 1000000000, ArzeshMoamelat1 >= 1000000) ArzeshMoamelatA1 = (ArzeshMoamelat1 / 1000000)
+				.toFixed(3) + " م"
+			else if (ArzeshMoamelat1 < 1000000) ArzeshMoamelatA1 = (ArzeshMoamelat1 / 1000)
+				.toFixed(3) + " ه"
+		}
+		//------
+		var AzMah20 = parseFloat((((tval) / ArzeshMoa(1, 20)) * 100) / 100)
+			.toFixed(2);
+		var ArzeshMoamelat2 = (Math.round((ArzeshMoa(1, 20)) * 10) / 100)
+		var ArzeshMoamelatA2 = ""
+		if (ArzeshMoamelat2 > 0)
+		{
+			if (ArzeshMoamelat2 >= 1000000000) ArzeshMoamelatA2 = (ArzeshMoamelat2 / 1000000000)
+				.toFixed(3) + " ب"
+			else if (ArzeshMoamelat2 < 1000000000, ArzeshMoamelat2 >= 1000000) ArzeshMoamelatA2 = (ArzeshMoamelat2 / 1000000)
+				.toFixed(3) + " م"
+			else if (ArzeshMoamelat2 < 1000000) ArzeshMoamelatA2 = (ArzeshMoamelat2 / 1000)
+				.toFixed(3) + " ه"
+		}
+		//------
+		var AzMah60 = parseFloat((((tval) / [is1]) * 100) / 100)
+			.toFixed(2);
+		var Arzesh2 = ""
+		var ArzeshM2 = (Math.round(([is1]) * 10) / 100)
+		if (ArzeshM2 > 0)
+		{
+			if (ArzeshM2 >= 1000000000) Arzesh2 = (ArzeshM2 / 1000000000)
+				.toFixed(3) + " ب"
+			else if (ArzeshM2 < 1000000000, ArzeshM2 >= 1000000) Arzesh2 = (ArzeshM2 / 1000000)
+				.toFixed(3) + " م"
+			else if (ArzeshM2 < 1000000) Arzesh2 = (ArzeshM2 / 1000)
+				.toFixed(3) + " ه"
+		}
+		//------
+		var AzMah240 = parseFloat((((tval) / [is2]) * 100) / 100)
+			.toFixed(2);
+		var Arzesh3 = ""
+		var ArzeshM3 = (Math.round(([is2]) * 10) / 100)
+		if (ArzeshM3 > 0)
+		{
+			if (ArzeshM3 >= 1000000000) Arzesh3 = (ArzeshM3 / 1000000000)
+				.toFixed(3) + " ب"
+			else if (ArzeshM3 < 1000000000, ArzeshM3 >= 1000000) Arzesh3 = (ArzeshM3 / 1000000)
+				.toFixed(3) + " م"
+			else if (ArzeshM3 < 1000000) Arzesh3 = (ArzeshM3 / 1000)
+				.toFixed(3) + " ه"
+		}
+		{
+			if (Arzesh1 > Arzesh2)
+			{
+				score += 1
+			}
+			else if (Arzesh1 < Arzesh2)
+			{
+				score -= 1
+			}
+		}
+		//*******************************************قدرت پول*******************************************
+		var powerIOMoney = Math.round(((((ct)
+			.Buy_I_Volume - (ct)
+			.Sell_I_Volume) * (pl)) / ArzeshMoa(1, 20)) * 100) / 100
+		var powerIOMoneyC = ""
+		if (powerIOMoney > 0)
+		{
+			powerIOMoneyC = " 🟢"
+		}
+		else if (powerIOMoney < 0)
+		{
+			powerIOMoneyC = " 🔴"
+		}
+		else
+		{
+			powerIOMoneyC = ""
+		}
+		//*******************************************نقدشوندگی*******************************************
+		var Naghd1 = [ih].length //تعداد روزهای مد نظر جهت کنترل نقد شوندگی
+		var Naghd2 = 0 //تعداد روزهای صف فروش
+		var Naghd3 = 0 //تعداد روزهای معامله شده
+		var Naghd4 = ""
+		var Naghd5 = ""
+		var Naghd6 = ""
+		for (i = 0; i < Naghd1; i++)
+		{
+			if ([ih][i].QTotTran5J > 0) Naghd3 = Naghd3 + 1
+			if ([ih][i].QTotTran5J > 0 && [ih][i].PriceMin == [ih][i].PriceMax && [ih][i].PriceMax == [ih][i].PriceFirst && [ih][i].PriceFirst < [ih][i].PriceYesterday) Naghd2 = Naghd2 + 1
+		}
+		Naghd4 = Naghd3 //تعداد روزهای معامله شده از کل 
+		Naghd5 = Naghd2 //تعداد روزهای صف فروش
+		Naghd6 = (((Naghd3 - Naghd2) / (Naghd3)) * 100)
+			.toFixed(1) //نقد شوندگی به درصد
+		if (Naghd6 == 100)
+		{
+			score += 3
+		}
+		else if (Naghd6 >= 70 && Naghd6 < 100)
+		{
+			score += 2
+		}
+		else if (Naghd6 < 70 && Naghd6 >= 50)
+		{
+			score += 1
+		}
+		else if (Naghd6 < 50)
+		{
+			score -= 3
+		}
+		var Naghd121 = ""
+		var Naghd31 = ""
+		Naghd121 = ([is41] - [is47])
+			.toFixed(1) //12باز بسته
+		Naghd31 = ([is40] - [is46])
+			.toFixed(1) //3باز بسته
+		//*******************************************صحبتهای ربات*******************************************
+		var KharidHa3mahe = "(" + ((([is50] - [is70]) / [is70]) * 100)
+			.toFixed(1) + "%" + ")"
+		var ForushHa3mahe = "(" + ((([is70] - [is50]) / [is50]) * 100)
+			.toFixed(1) + "%" + ")"
+		var KharidHa3mahe1 = ""
+		var ForushHa3mahe1 = ""
+		if (KharidHa3mahe > ForushHa3mahe) KharidHa3mahe1 = " خرید حقیقی " + KharidHa3mahe + " بیشتر از فروش بوده "
+		else ForushHa3mahe1 = " فروش حقیقی " + ForushHa3mahe + " بیشتر از خرید بوده "
+		var KharidHa12mahe = "(" + ((([is51] - [is71]) / [is71]) * 100)
+			.toFixed(1) + "%" + ")"
+		var ForushHa12mahe = "(" + ((([is71] - [is51]) / [is51]) * 100)
+			.toFixed(1) + "%" + ")"
+		var KharidHa12mahe1 = ""
+		var ForushHa12mahe1 = ""
+		if (KharidHa12mahe > ForushHa12mahe) KharidHa12mahe1 = (" خرید حقیقی " + KharidHa12mahe + " بیشتر از فروش بوده ")
+		else ForushHa12mahe1 = (" فروش حقیقی " + ForushHa12mahe + " بیشتر از خرید بوده ")
+		var KharidHo3mahe = "(" + ((([is54] - [is74]) / [is74]) * 100)
+			.toFixed(1) + "%" + ")"
+		var ForushHo3mahe = "(" + ((([is74] - [is54]) / [is54]) * 100)
+			.toFixed(1) + "%" + ")"
+		var KharidHo3mahe1 = ""
+		var ForushHo3mahe1 = ""
+		if (KharidHo3mahe > ForushHo3mahe) KharidHo3mahe1 = " خرید حقوقی " + KharidHo3mahe + " بیشتر از فروش بوده."
+		else ForushHo3mahe1 = " فروش حقوقی " + ForushHo3mahe + " بیشتر از خرید بوده."
+		var KharidHo12mahe = "(" + ((([is55] - [is75]) / [is75]) * 100)
+			.toFixed(1) + "%" + ")"
+		var ForushHo12mahe = "(" + ((([is75] - [is55]) / [is55]) * 100)
+			.toFixed(1) + "%" + ")"
+		var KharidHo12mahe1 = ""
+		var ForushHo12mahe1 = ""
+		if (KharidHo12mahe > ForushHo12mahe) KharidHo12mahe1 = (" خرید حقوقی " + KharidHo12mahe + " بیشتر از فروش بوده.")
+		else ForushHo12mahe1 = (" فروش حقوقی " + ForushHo12mahe + " بیشتر از خرید بوده.")
+		//*******************************************امتیازات*******************************************
+		if (ghodrat1 < 1.00)
+		{
+			score -= 4
+		}
+		else if (ghodrat1 >= 1.00 && ghodrat1 < 2.00)
+		{
+			score += 1
+		}
+		else if (ghodrat1 >= 2.00 && ghodrat1 < 4.00)
+		{
+			score += 2
+		}
+		else if (ghodrat1 >= 4.00 && ghodrat1 < 7.00)
+		{
+			score += 3
+		}
+		else if (ghodrat1 > 7.00)
+		{
+			score += 4
+		}
+		if (GhodtarHo < 1.00)
+		{
+			score -= 4
+		}
+		else if (GhodtarHo >= 1.00 && GhodtarHo < 2.00)
+		{
+			score += 1
+		}
+		else if (GhodtarHo >= 2.00 && GhodtarHo < 4.00)
+		{
+			score += 2
+		}
+		else if (GhodtarHo >= 4.00 && GhodtarHo < 7.00)
+		{
+			score += 3
+		}
+		else if (GhodtarHo > 7.00)
+		{
+			score += 4
+		}
+		if (saraneh_kh1 > TSaraneKhHa3)
+		{
+			score += 1;
+		}
+		else if (saraneh_kh1 < TSaraneKhHa3)
+		{
+			score -= 1;
+		}
+		if (saraneh_f1 > TSaraneFHa3)
+		{
+			score -= 1;
+		}
+		else if (saraneh_f1 < TSaraneFHa3)
+		{
+			score += 1;
+		}
+		if (SaraneHo1 > TSaraneKhHo3)
+		{
+			score += 1;
+		}
+		else if (SaraneHo1 < TSaraneKhHo3)
+		{
+			score -= 1;
+		}
+		if (SaraneHo2 > TSaraneFHo3)
+		{
+			score -= 1;
+		}
+		else if (SaraneHo2 < TSaraneFHo3)
+		{
+			score += 1;
+		}
+		if (BHaghighi > BHoghughi)
+		{
+			var CheHaHo1 = "🟢"
+		}
+		else if (BHaghighi < BHoghughi)
+		{
+			var CheHaHo1 = "🔴"
+		}
+		if (BHoghughi > BHaghighi)
+		{
+			var CheHaHo2 = "🟢"
+		}
+		else if (BHoghughi < BHaghighi)
+		{
+			var CheHaHo2 = "🔴"
+		}
+		if (BHaghighi > BHoghughi)
+		{
+			score += 1
+		}
+		else if (BHaghighi < BHoghughi)
+		{
+			score -= 1
+		}
+		//*******************************************فیلترها*******************************************
+		//---ورود پول هوشمند
+		var hooshmand1 = ""
+		var sumhooshmand1 = 0
+		for (var i = 0; i < 30; i++)
+		{
+			sumhooshmand1 += [ih][i].QTotTran5J
+		}
+		if ((tvol) > (sumhooshmand1 / 30) && ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) >= ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) && (pl) >= (pc) && (plp) > 0)
+		{
+			hooshmand1 = " ✔️ "
+			score += 2
+		}
+		else
+		{
+			hooshmand1 = ""
+		}
+		//---
+		var hooshmand2 = ""
+		if ((tvol) > 1.25 * [is5] && ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) >= ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) && (pl) >= (pc) && (plp) > 0)
+		{
+			hooshmand2 = " ✔️ "
+			score += 2
+		}
+		else
+		{
+			hooshmand2 = ""
+		}
+		//---
+		var hooshmand3 = ""
+		if ((tvol) > 1.5 * [is6] && ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) >= ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) && (pl) >= (pc) && (plp) > 0)
+		{
+			hooshmand3 = " ✔️ "
+			score += 2
+		}
+		else
+		{
+			hooshmand3 = ""
+		}
+		//---
+		var hooshmand4 = ""
+		var sumhooshmand4 = 0
+		for (var i = 0; i < 6; i++)
+		{
+			sumhooshmand4 += [ih][i].QTotTran5J
+		}
+		if (((ct)
+				.Sell_I_Volume + (ct)
+				.Sell_N_Volume) / ((ct)
+				.Sell_CountI + (ct)
+				.Sell_CountN) * 2 < (ct)
+			.Buy_I_Volume / (ct)
+			.Buy_CountI && (sumhooshmand4 / 6) <= (tvol))
+		{
+			hooshmand4 = " ✔️ "
+			score += 2
+		}
+		else
+		{
+			hooshmand4 = ""
+		}
+		//---خروج پول هوشمند
+		var hooshmandkh1 = ""
+		var sumhooshmandkh1 = 0
+		for (var i = 0; i < 30; i++)
+		{
+			sumhooshmandkh1 += [ih][i].QTotTran5J
+		}
+		if ((tvol) > (sumhooshmandkh1 / 30) && ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) < ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) && (pl) <= (pc) && (plp) < 0)
+		{
+			hooshmandkh1 = " ✔️ "
+			score -= 2
+		}
+		else
+		{
+			hooshmandkh1 = ""
+		}
+		//---
+		var hooshmandkh2 = ""
+		if ((tvol) > 1.25 * [is5] && ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) < ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) && (pl) <= (pc) && (plp) < 0)
+		{
+			hooshmandkh2 = " ✔️ "
+			score -= 2
+		}
+		else
+		{
+			hooshmandkh2 = ""
+		}
+		//---
+		var hooshmandkh3 = ""
+		if ((tvol) > 1.5 * [is6] && ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) < ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) && (pl) <= (pc) && (plp) < 0)
+		{
+			hooshmandkh3 = " ✔️ "
+			score -= 2
+		}
+		else
+		{
+			hooshmandkh3 = ""
+		}
+		//---پول داغ
+		var Daagh1 = ""
+		var sumDaagh1 = 0
+		for (var i = 0; i < 30; i++)
+		{
+			sumDaagh1 += [ih][i].QTotTran5J
+		}
+		if ((tvol) > 2 * (sumDaagh1 / 30) && ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) >= 2 * ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) && (pl) >= (pc) && (plp) > 0)
+		{
+			Daagh1 = " ✔️ "
+			score += 2
+		}
+		else
+		{
+			Daagh1 = ""
+		}
+		//---
+		var Daagh2 = ""
+		if ((tvol) > 3 * [is5] && ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) >= 2 * ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) && (pl) >= (pc) && (plp) > 0)
+		{
+			Daagh2 = " ✔️ "
+			score += 2
+		}
+		else
+		{
+			Daagh2 = ""
+		}
+		//---
+		var Daagh3 = ""
+		if ((tvol) > 4 * [is6] && ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) >= 2 * ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) && (pl) >= (pc) && (plp) > 0)
+		{
+			Daagh3 = " ✔️ "
+			score += 2
+		}
+		else
+		{
+			Daagh3 = ""
+		}
+		//خریدهای حمایتی
+		var OrderH = ""
+		if ((((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI - (ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) * (pc) / 10000) >= 0 && ((((ct)
+				.Buy_N_Volume) - ((ct)
+				.Sell_N_Volume)) * (pc) / 10000) >= 0 && (tno) > 50)
+		{
+			OrderH = " 🟢"
+			score += 1
+		}
+		else
+		{
+			OrderH = ""
+		}
+		//کد به کد
+		var codbecodHaHo = ""
+		var codbecodHoHa = ""
+		var sumcodbecod = 0
+		for (var i = 0; i < 30; i++)
+		{
+			sumcodbecod += [ih][i].QTotTran5J
+		}
+		if ((tvol) > (sumcodbecod / 30) && ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) < ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) && (pl) <= (pc) && (plp) < 0 && (ct)
+			.Buy_N_Volume > 0.5 * (tvol) && (ct)
+			.Sell_I_Volume > 0.5 * (tvol))
+		{
+			codbecodHaHo = " ✔️ "
+		}
+		else
+		{
+			codbecodHaHo = ""
+		}
+		if ((py) < (pf) && (py) < (pmax) && (tvol) > 1.5 * (sumcodbecod / 30) && ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) >= ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) && (pl) >= (pc) && (plp) > 0 && (ct)
+			.Buy_I_Volume > 0.5 * (tvol) && (ct)
+			.Sell_N_Volume > 0.5 * (tvol) && (py) < (pc) && (py) < (pl))
+		{
+			codbecodHoHa = " ✔️ "
+		}
+		else
+		{
+			codbecodHoHa = ""
+		}
+		//کد به کد
+		var codbecodHaHo1 = ""
+		var codbecodHoHa1 = ""
+		if ((tvol) > 1.25 * [is5] && ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) >= ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) && (pl) >= (pc) && (plp) > 0 && (ct)
+			.Sell_I_Volume > 0.5 * (tvol) && (ct)
+			.Buy_N_Volume > 0.5 * (tvol))
+		{
+			codbecodHaHo1 = " ✔️ "
+		}
+		else
+		{
+			codbecodHaHo1 = ""
+		}
+		if ((tvol) > 1.25 * [is5] && ((ct)
+				.Buy_I_Volume / (ct)
+				.Buy_CountI) >= ((ct)
+				.Sell_I_Volume / (ct)
+				.Sell_CountI) && (pl) >= (pc) && (plp) > 0 && (ct)
+			.Buy_I_Volume > 0.5 * (tvol) && (ct)
+			.Sell_N_Volume > 0.5 * (tvol))
+		{
+			codbecodHoHa1 = " ✔️ "
+		}
+		else
+		{
+			codbecodHoHa1 = ""
+		}
+		//احتمال خرید گروهی
+		var Group = ""
+		if ((pcp) <= -3.7)
+		{
+			Group = " 🟢"
+			score += 2
+		}
+		else
+		{
+			Group = ""
+		}
+		//الگوی ساعت
+		var Osaat = ""
+		if ((plp) - (pcp) > 2)
+		{
+			Osaat = " 🟢"
+			score += 1
+		}
+		else if ((pcp) - (plp) > 2)
+		{
+			Osaat = " معکوس 🔴"
+			score -= 1
+		}
+		else
+		{
+			Osaat = ""
+		}
+		//الگوی تیک
+		var Tik = ""
+		if (0.98 * (pl) > (pf) && 0.98 * (pf) > (pmin) && (pl) == (pmax))
+		{
+			Tik = " 🟢"
+			score += 2
+		}
+		else if (0.98 * (pmax) > (pf) && 0.98 * (pf) > (pl) && (pl) == (pmin))
+		{
+			Tik = " نزولی 🔴"
+			score -= 2
+		}
+		else
+		{
+			Tik = ""
+		}
+		//تشخيص نوسان روزانه
+		var Frequency = "";
+		var Fre = 100 * ((pmax) - (pmin)) / (pmin);
+		if (Fre >= 0)
+		{
+			Frequency = " %" + (Fre)
+				.toFixed(2);
+		}
+		else if (Fre <= 0)
+		{
+			Frequency = " %" + (Fre)
+				.toFixed(2);
+		}
+		else
+		{
+			Frequency = ""
+		}
+		//تابع تشخیص مثبت فردا
+		var Tomorrow = "";
+		if ((tno) > 50 && (plp) >= (pcp) + 1.5)
+		{
+			Tomorrow = " 🟢";
+			score += 2
+		}
+		else
+		{
+			Tomorrow = "";
+		}
+		//تشخیص صف
+		var LineSaf1 = ""
+		var LineSaf2 = ""
+		if ((pd1) == (tmax) && (qd1) > 0)
+		{
+			LineSaf1 = "خرید"
+		}
+		else
+		{
+			LineSaf1 = ""
+		}
+		if ((po1) == (tmin) && (qo1) > 0)
+		{
+			LineSaf2 = "فروش"
+		}
+		else
+		{
+			LineSaf2 = ""
+		}
+		//*******************************************پرایس اکشن*******************************************
+		var n = 0;
+		//------------
+		var Candle1 = ""
+		if ([ih][n].PDrCotVal >= 1.01 * [ih][n].PriceFirst && [ih][n].QTotTran5J !== 0 && ([ih][n].PriceMax - [ih][n].PDrCotVal) < 0.25 * ([ih][n].PDrCotVal - [ih][n].PriceFirst) && ([ih][n].PriceFirst - [ih][n].PriceMin) < 0.25 * ([ih][n].PDrCotVal - [ih][n].PriceFirst))
+		{
+			(Candle1 = "White Marubozu (مارابوزو سفید)");
+			CPscore += 1;
+		}
+		else
+		{
+			(Candle1 = "");
+		}
+		//------------
+		var Candle2 = ""
+		if ([ih][n].PriceFirst >= 1.01 * [ih][n].PDrCotVal && [ih][n].QTotTran5J !== 0 && ([ih][n].PriceMax - [ih][n].PriceFirst) < 0.25 * ([ih][n].PriceFirst - [ih][n].PDrCotVal) && ([ih][n].PDrCotVal - [ih][n].PriceMin) < 0.25 * ([ih][n].PriceFirst - [ih][n].PDrCotVal))
+		{
+			(Candle2 = "Black Marubozu (مارابوزو سیاه)");
+			CPscore -= 1;
+		}
+		else
+		{
+			(Candle2 = "");
+		}
+		//------------
+		var Candle3 = ""
+		if ([ih][n].PDrCotVal >= 1.01 * [ih][n].PriceFirst && [ih][n].QTotTran5J !== 0 && ([ih][n].PriceFirst - [ih][n].PriceMin) / ([ih][n].PDrCotVal - [ih][n].PriceFirst) <= 0.25 && ([ih][n].PriceMax - [ih][n].PDrCotVal) < 2 * ([ih][n].PDrCotVal - [ih][n].PriceFirst) && ([ih][n].PriceMax - [ih][n].PDrCotVal) / ([ih][n].PDrCotVal - [ih][n].PriceFirst) >= 0.3)
+		{
+			(Candle3 = "Opening White Marubozu (مارابوزوی باز سفید)");
+			CPscore += 1;
+		}
+		else
+		{
+			(Candle3 = "");
+		}
+		//------------
+		var Candle4 = ""
+		if ([ih][n].PriceFirst >= 1.01 * [ih][n].PDrCotVal && [ih][n].QTotTran5J !== 0 && ([ih][n].PDrCotVal - [ih][n].PriceMin) / ([ih][n].PriceFirst - [ih][n].PDrCotVal) <= 0.25 && ([ih][n].PriceMax - [ih][n].PriceFirst) / ([ih][n].PriceFirst - [ih][n].PDrCotVal) >= 0.3 && ([ih][n].PriceMax - [ih][n].PriceFirst) < 2 * ([ih][n].PriceFirst - [ih][n].PDrCotVal))
+		{
+			(Candle4 = "Closing Black Marubozu (مارابوزوی سیاه بسته)");
+			CPscore -= 1;
+		}
+		else
+		{
+			(Candle4 = "");
+		}
+		//------------
+		var Candle5 = ""
+		if ([ih][n].QTotTran5J !== 0 && [ih][n].PriceFirst / [ih][n].PDrCotVal >= 1.01 && ([ih][n].PriceMax - [ih][n].PriceFirst) / ([ih][n].PriceFirst - [ih][n].PDrCotVal) <= 0.25 && ([ih][n].PDrCotVal - [ih][n].PriceMin) / ([ih][n].PriceFirst - [ih][n].PDrCotVal) >= 0.3 && ([ih][n].PDrCotVal - [ih][n].PriceMin) < 2 * ([ih][n].PriceFirst - [ih][n].PDrCotVal))
+		{
+			(Candle5 = "Opening Black Marubozu (مارابوزوی سیاه باز)");
+			CPscore -= 1;
+		}
+		else
+		{
+			(Candle5 = "");
+		}
+		//------------
+		var Candle6 = ""
+		if ([ih][n].QTotTran5J !== 0 && [ih][n].PDrCotVal / [ih][n].PriceFirst >= 1.01 && ([ih][n].PriceMax - [ih][n].PDrCotVal) / ([ih][n].PDrCotVal - [ih][n].PriceFirst) <= 0.25 && ([ih][n].PriceFirst - [ih][n].PriceMin) < 2 * ([ih][n].PDrCotVal - [ih][n].PriceFirst) && ([ih][n].PriceFirst - [ih][n].PriceMin) / ([ih][n].PDrCotVal - [ih][n].PriceFirst) >= 0.3)
+		{
+			(Candle6 = "Closing White Marubozu (مارابوزوی سفید بسته)");
+			CPscore += 1;
+		}
+		else
+		{
+			(Candle6 = "");
+		}
+		//------------
+		var Candle7 = ""
+		if ([ih][n].QTotTran5J !== 0 && [ih][n].PriceFirst >= 1.01 * [ih][n].PDrCotVal && ([ih][n].PDrCotVal - [ih][n].PriceMin) > 0.25 * ([ih][n].PriceFirst - [ih][n].PDrCotVal) && ([ih][n].PriceMax - [ih][n].PriceFirst) > 0.25 * ([ih][n].PriceFirst - [ih][n].PDrCotVal))
+		{
+			(Candle7 = "Long Black Candle (کندل سیاه بلند)");
+			CPscore -= 1;
+		}
+		else
+		{
+			(Candle7 = "");
+		}
+		//------------
+		var Candle8 = ""
+		if ([ih][n].QTotTran5J !== 0 && [ih][n].PDrCotVal >= 1.01 * [ih][n].PriceFirst && ([ih][n].PriceMax - [ih][n].PDrCotVal) > 0.25 * ([ih][n].PDrCotVal - [ih][n].PriceFirst) && ([ih][n].PriceFirst - [ih][n].PriceMin) > 0.25 * ([ih][n].PDrCotVal - [ih][n].PriceFirst))
+		{
+			(Candle8 = "Long White Candle (کندل سفید بلند)");
+			CPscore += 1;
+		}
+		else
+		{
+			(Candle8 = "");
+		}
+		//------------
+		var Candle9 = ""
+		if ([ih][n].QTotTran5J !== 0 && [ih][n].PDrCotVal >= 1.003 * [ih][n].PriceFirst && ([ih][n].PriceFirst - [ih][n].PriceMin) >= 2 * ([ih][n].PDrCotVal - [ih][n].PriceFirst) && ([ih][n].PriceMax - [ih][n].PDrCotVal) < 0.2 * ([ih][n].PDrCotVal - [ih][n].PriceFirst))
+		{
+			(Candle9 = "Hammer (چکش)");
+			CPscore += 1;
+		}
+		else
+		{
+			(Candle9 = "");
+		}
+		//------------
+		var Candle10 = ""
+		if ([ih][n].QTotTran5J !== 0 && [ih][n].PriceFirst >= 1.003 * [ih][n].PDrCotVal && ([ih][n].PDrCotVal - [ih][n].PriceMin) >= 2 * ([ih][n].PriceFirst - [ih][n].PDrCotVal) && ([ih][n].PriceMax - [ih][n].PriceFirst) < 0.2 * ([ih][n].PriceFirst - [ih][n].PDrCotVal))
+		{
+			(Candle10 = "Hanging Man (مرد دارآویز)");
+			CPscore -= 1;
+		}
+		else
+		{
+			(Candle10 = "");
+		}
+		//------------
+		var Candle11 = ""
+		if ([ih][n].QTotTran5J !== 0 && [ih][n].PDrCotVal >= 1.003 * [ih][n].PriceFirst && ([ih][n].PriceFirst - [ih][n].PriceMin) < 0.2 * ([ih][n].PDrCotVal - [ih][n].PriceFirst) && ([ih][n].PriceMax - [ih][n].PDrCotVal) >= 2 * ([ih][n].PDrCotVal - [ih][n].PriceFirst))
+		{
+			(Candle11 = "Inverted Hammer (چکش برعکس)");
+			CPscore += 1;
+		}
+		else
+		{
+			(Candle11 = "");
+		}
+		//------------
+		var Candle12 = ""
+		if ([ih][n].QTotTran5J !== 0 && [ih][n].PriceFirst >= 1.003 * [ih][n].PDrCotVal && ([ih][n].PDrCotVal - [ih][n].PriceMin) < 0.2 * ([ih][n].PriceFirst - [ih][n].PDrCotVal) && ([ih][n].PriceMax - [ih][n].PriceFirst) >= 2 * ([ih][n].PriceFirst - [ih][n].PDrCotVal))
+		{
+			(Candle12 = "Shooting Star (ستاره ثاقب)");
+			CPscore -= 1;
+		}
+		else
+		{
+			(Candle12 = "");
+		}
+		//------------
+		var Candle13 = ""
+		if ([ih][n].QTotTran5J !== 0 && Math.min([ih][n].PDrCotVal, [ih][n].PriceFirst) >= 1.01 * [ih][n].PriceMin && ([ih][n].PriceMax - Math.max([ih][n].PDrCotVal, [ih][n].PriceFirst)) <= 0.2 * (Math.min([ih][n].PDrCotVal, [ih][n].PriceFirst) - [ih][n].PriceMin))
+		{
+			if ([ih][n].PDrCotVal >= [ih][n].PriceFirst && [ih][n].PDrCotVal <= 1.002 * [ih][n].PriceFirst || [ih][n].PDrCotVal <= [ih][n].PriceFirst && [ih][n].PriceFirst <= 1.002 * [ih][n].PDrCotVal)
+				(Candle13 = "Dragonfly Doji (دوجی سنجاقک)");
+			CPscore += 1;
+		}
+		else
+		{
+			(Candle13 = "");
+		}
+		//------------
+		var Candle14 = ""
+		if ([ih][n].QTotTran5J !== 0 && [ih][n].PriceMax >= 1.01 * Math.max([ih][n].PDrCotVal, [ih][n].PriceFirst) && (Math.min([ih][n].PDrCotVal, [ih][n].PriceFirst) - [ih][n].PriceMin) <= 0.2 * ([ih][n].PriceMax - Math.max([ih][n].PDrCotVal, [ih][n].PriceFirst)))
+		{
+			if ([ih][n].PDrCotVal >= [ih][n].PriceFirst && [ih][n].PDrCotVal < 1.003 * [ih][n].PriceFirst || [ih][n].PDrCotVal <= [ih][n].PriceFirst && [ih][n].PriceFirst < 1.003 * [ih][n].PDrCotVal)
+				(Candle14 = "Gravestone Doji (دوجی سنگ قبر)");
+			CPscore -= 1;
+		}
+		else
+		{
+			(Candle14 = "");
+		}
+		//------------
+		var Candle15 = ""
+		if ([ih][n].PriceMin >= 0.098 * Math.min([ih][n].PDrCotVal, [ih][n].PriceFirst) && [ih][n].PriceMax <= 1.002 * Math.max([ih][n].PDrCotVal, [ih][n].PriceFirst))
+		{
+			if ([ih][n].PDrCotVal >= [ih][n].PriceFirst && [ih][n].PDrCotVal <= 1.002 * [ih][n].PriceFirst || [ih][n].PDrCotVal <= [ih][n].PriceFirst && [ih][n].PriceFirst <= 1.002 * [ih][n].PDrCotVal)
+			{
+				(Candle15 = "Four Price Doji (دوجی چهار قیمت)");
+			}
+		}
+		else
+		{
+			(Candle15 = "");
+		}
+		//------------
+		var Candle16 = ""
+		if ([ih][n].PriceMax >= 1.006 * Math.max([ih][n].PDrCotVal, [ih][n].PriceFirst) && Math.min([ih][n].PDrCotVal, [ih][n].PriceFirst) >= 1.006 * [ih][n].PriceMin)
+		{
+			if ([ih][n].PDrCotVal >= [ih][n].PriceFirst && [ih][n].PDrCotVal <= 1.002 * [ih][n].PriceFirst || [ih][n].PDrCotVal <= [ih][n].PriceFirst && [ih][n].PriceFirst <= 1.002 * [ih][n].PDrCotVal)
+				(Candle16 = "Long Legged Doji (دوجی پایه بلند)");
+		}
+		else
+		{
+			(Candle16 = "");
+		}
+		//------------
+		var Candle17 = ""
+		var Canj = Math.max([ih][n].PDrCotVal, [ih][n].PriceFirst);
+		var Cank = Math.min([ih][n].PDrCotVal, [ih][n].PriceFirst);
+		if ([ih][n].QTotTran5J !== 0 && Cank > 1.003 * [ih][n].PriceMin && [ih][n].PriceMax >= 1.003 * Canj)
+		{
+			if (Cank <= 1.006 * [ih][n].PriceMin || [ih][n].PriceMax <= 1.006 * Canj)
+			{
+				if ([ih][n].PDrCotVal >= [ih][n].PriceFirst && [ih][n].PDrCotVal <= 1.002 * [ih][n].PriceFirst || [ih][n].PDrCotVal <= [ih][n].PriceFirst && [ih][n].PriceFirst <= 1.002 * [ih][n].PDrCotVal)
+					(Candle17 = "Normal Doji (دوجی معمولی)");
+			}
+		}
+		else
+		{
+			(Candle17 = "");
+		}
+		//------------
+		var Candle18 = ""
+		if ([ih][n].QTotTran5J !== 0 && [ih][n].PDrCotVal / [ih][n].PriceFirst < 1.01 && [ih][n].PDrCotVal / [ih][n].PriceFirst > 1.002)
+		{
+			if (([ih][n].PriceMax - [ih][n].PDrCotVal) >= ([ih][n].PriceFirst - [ih][n].PriceMin) && (([ih][n].PriceMax - [ih][n].PDrCotVal) - ([ih][n].PriceFirst - [ih][n].PriceMin)) <= ([ih][n].PriceFirst - [ih][n].PriceMin) / 2 || ([ih][n].PriceMax - [ih][n].PDrCotVal) <= ([ih][n].PriceFirst - [ih][n].PriceMin) && (([ih][n].PriceFirst - [ih][n].PriceMin) - ([ih][n].PriceMax - [ih][n].PDrCotVal)) <= ([ih][n].PriceMax - [ih][n].PDrCotVal) / 2)
+			{
+				(Candle18 = "Spinning Top (فرفره صعودی)");
+				CPscore += 1;
+			}
+		}
+		else
+		{
+			(Candle18 = "");
+		}
+		//------------
+		var Candle19 = ""
+		if ([ih][n].QTotTran5J !== 0 && [ih][n].PriceFirst / [ih][n].PDrCotVal < 1.01 && [ih][n].PriceFirst / [ih][n].PDrCotVal > 1.002)
+		{
+			if (([ih][n].PriceMax - [ih][n].PriceFirst) >= ([ih][n].PDrCotVal - [ih][n].PriceMin) && (([ih][n].PriceMax - [ih][n].PriceFirst) - ([ih][n].PDrCotVal - [ih][n].PriceMin)) <= ([ih][n].PDrCotVal - [ih][n].PriceMin) / 2 || ([ih][n].PriceMax - [ih][n].PriceFirst) <= ([ih][n].PDrCotVal - [ih][n].PriceMin) && (([ih][n].PDrCotVal - [ih][n].PriceMin) - ([ih][n].PriceMax - [ih][n].PriceFirst)) <= ([ih][n].PriceMax - [ih][n].PriceFirst) / 2)
+			{
+				(Candle19 = "Spinning Bottom (فرفره نزولی)");
+				CPscore -= 1;
+			}
+		}
+		else
+		{
+			(Candle19 = "");
+		}
+		//------------
+		var Candle20 = ""
+		if ([ih][n].QTotTran5J !== 0 && [ih][n + 1].ZTotTran !== 0 && [ih][n + 1].PriceFirst >= 1.01 * [ih][n + 1].PDrCotVal && [ih][n].PriceFirst > 1.002 * [ih][n].PDrCotVal && [ih][n + 1].PriceFirst > [ih][n].PriceFirst && [ih][n + 1].PDrCotVal < [ih][n].PDrCotVal)
+		{
+			(Candle20 = "Homing Pigeon (کبوتر خانگی)");
+		}
+		else
+		{
+			(Candle20 = "");
+		}
+		//------------
+		var Candle21 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n + 1].PDrCotVal > [ih][n].PDrCotVal && [ih][n + 1].PDrCotVal >= 1.01 * [ih][n + 1].PriceFirst && [ih][n].PDrCotVal > 1.002 * [ih][n].PriceFirst && [ih][n].PriceFirst > [ih][n + 1].PriceFirst)
+		{
+			(Candle21 = "Descending Hawk (شاهین نزولی)");
+		}
+		else
+		{
+			(Candle21 = "");
+		}
+		//------------
+		var Candle22 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n].PDrCotVal >= 1.01 * [ih][n].PriceFirst && [ih][n + 1].PriceFirst > [ih][n + 1].PDrCotVal && [ih][n].PriceFirst <= [ih][n + 1].PDrCotVal && [ih][n + 1].PriceFirst <= [ih][n].PDrCotVal)
+		{
+			(Candle22 = "Bullish Engulfing (پوشای صعودی)");
+			CPscore += 2;
+		}
+		else
+		{
+			(Candle22 = "");
+		}
+		//------------
+		var Candle23 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n].PriceFirst >= 1.01 * [ih][n].PDrCotVal && [ih][n + 1].PriceFirst < [ih][n + 1].PDrCotVal && [ih][n].PriceFirst >= [ih][n + 1].PDrCotVal && [ih][n + 1].PriceFirst >= [ih][n].PDrCotVal)
+		{
+			(Candle23 = "Bearish Engulfing (پوشای نزولی)");
+			CPscore -= 2;
+		}
+		else
+		{
+			(Candle23 = "");
+		}
+		//------------
+		var Candle24 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n].PDrCotVal >= 1.006 * [ih][n].PriceFirst && [ih][n + 1].PriceFirst > [ih][n].PDrCotVal && [ih][n + 1].PriceMin > [ih][n].PriceFirst && [ih][n + 1].PriceFirst >= 1.0006 * [ih][n + 1].PDrCotVal && [ih][n].PDrCotVal >= 0.5 * (([ih][n + 1].PDrCotVal) + ([ih][n + 1].PriceFirst)))
+		{
+			(Candle24 = "Piercing Line (نفوذی)");
+		}
+		else
+		{
+			(Candle24 = "");
+		}
+		//------------
+		var Candle25 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n + 1].PriceFirst > [ih][n].PDrCotVal && [ih][n].PDrCotVal >= 1.003 * [ih][n].PriceFirst && [ih][n].PriceFirst > [ih][n + 1].PDrCotVal)
+		{
+			(Candle25 = "Bullish Harami (هارامی صعودی)");
+			CPscore += 2;
+		}
+		else
+		{
+			(Candle25 = "");
+		}
+		//------------
+		var Candle26 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n + 1].PriceFirst > [ih][n].PDrCotVal && [ih][n].PDrCotVal >= [ih][n].PriceFirst && [ih][n].PDrCotVal < 1.003 * [ih][n].PriceFirst && [ih][n].PriceFirst > [ih][n + 1].PDrCotVal)
+		{
+			(Candle26 = "Bullish Harami Cross (صلیب هارامی صعودی)");
+			CPscore += 2;
+		}
+		else
+		{
+			(Candle26 = "");
+		}
+		//------------
+		var Candle27 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n + 1].PDrCotVal > [ih][n].PriceFirst && [ih][n].PriceFirst >= 1.003 * [ih][n].PDrCotVal && [ih][n].PDrCotVal > [ih][n + 1].PriceFirst)
+		{
+			(Candle27 = "Bearish Harami (هارامی نزولی)");
+			CPscore -= 2;
+		}
+		else
+		{
+			(Candle27 = "");
+		}
+		//------------
+		var Candle28 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n + 1].PDrCotVal > [ih][n].PriceFirst && [ih][n].PriceFirst >= [ih][n].PDrCotVal && [ih][n].PriceFirst < 1.003 * [ih][n].PDrCotVal && [ih][n].PDrCotVal > [ih][n + 1].PriceFirst)
+		{
+			(Candle28 = "Bearish Harami Cross (صلیب هارامی نزولی)");
+			CPscore -= 2;
+		}
+		else
+		{
+			(Candle28 = "");
+		}
+		//------------
+		var Candle29 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n + 1].PriceFirst < [ih][n].PriceFirst && [ih][n].PDrCotVal >= 1.003 * [ih][n].PriceFirst && [ih][n + 1].PriceFirst >= 1.01 * [ih][n + 1].PDrCotVal)
+		{
+			(Candle29 = "Bullish Kicking (کیکر صعودی)");
+			CPscore += 2;
+		}
+		else
+		{
+			(Candle29 = "");
+		}
+		//------------
+		var Candle30 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n + 1].PriceFirst > [ih][n].PriceFirst && [ih][n + 1].PDrCotVal >= 1.01 * [ih][n + 1].PriceFirst && [ih][n].PriceFirst >= 1.003 * [ih][n].PDrCotVal)
+		{
+			(Candle30 = "Bearish Kicking (کیکر نزولی)");
+			CPscore -= 2;
+		}
+		else
+		{
+			(Candle30 = "");
+		}
+		//------------
+		var Candle31 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n].PriceFirst >= 1.0006 * [ih][n].PDrCotVal && [ih][n].PriceFirst > [ih][n + 1].PriceMax && [ih][n + 1].PDrCotVal >= 1.006 * [ih][n + 1].PriceFirst && [ih][n].PDrCotVal > [ih][n + 1].PriceFirst && [ih][n].PDrCotVal <= 0.5 * ([ih][n + 1].PDrCotVal + [ih][n + 1].PriceFirst))
+		{
+			(Candle31 = "Dark Cloud Cover (ابر سیاه)");
+			CPscore -= 2;
+		}
+		else
+		{
+			(Candle31 = "");
+		}
+		//------------
+		var Candle32 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n + 1].PDrCotVal != [ih][n + 1].PriceFirst && [ih][n].PDrCotVal != [ih][n].PriceFirst)
+		{
+			if ([ih][n].PriceMin >= [ih][n + 1].PriceMin && [ih][n].PriceMin <= 1.001 * [ih][n + 1].PriceMin || [ih][n].PriceMin <= [ih][n + 1].PriceMin && [ih][n + 1].PriceMin <= 1.001 * [ih][n].PriceMin)
+			{
+				(Candle32 = "Tweezers Bottom (انبرک کف)");
+				CPscore += 2;
+			}
+		}
+		else
+		{
+			(Candle32 = "");
+		}
+		//------------
+		var Candle33 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n + 1].PDrCotVal != [ih][n + 1].PriceFirst && [ih][n].PDrCotVal != [ih][n].PriceFirst)
+		{
+			if ([ih][n].PriceMax >= [ih][n + 1].PriceMax && [ih][n].PriceMax <= 1.001 * [ih][n + 1].PriceMax || [ih][n].PriceMax <= [ih][n + 1].PriceMax && [ih][n + 1].PriceMax <= 1.001 * [ih][n].PriceMax)
+			{
+				(Candle33 = "Tweezers Top (انبرک سقف)");
+				CPscore -= 2;
+			}
+		}
+		else
+		{
+			(Candle33 = "");
+		}
+		//------------
+		var Candle34 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n].PDrCotVal >= 1.001 * [ih][n].PriceFirst && [ih][n].PDrCotVal == [ih][n + 1].PDrCotVal && [ih][n + 1].PriceFirst >= 1.001 * [ih][n + 1].PDrCotVal)
+		{
+			(Candle34 = "Counter-Attack Bullish (پاتک صعودی)");
+			CPscore += 2;
+		}
+		else
+		{
+			(Candle34 = "");
+		}
+		//------------
+		var Candle35 = ""
+		if ([ih][n + 1].ZTotTran !== 0 && [ih][n].ZTotTran !== 0 && [ih][n].PriceFirst <= 1.01 * [ih][n].PDrCotVal && [ih][n].PDrCotVal == [ih][n + 1].PDrCotVal && [ih][n + 1].PDrCotVal >= 1.01 * [ih][n + 1].PriceFirst)
+		{
+			(Candle35 = "Counter-Attack Bearish (پاتک نزولی)");
+			CPscore -= 2;
+		}
+		else
+		{
+			(Candle35 = "");
+		}
+		//------------
+		var Candle36 = ""
+		if ([ih][n + 1].PDrCotVal >= 1.01 * [ih][n + 1].PriceFirst && [ih][n].PriceFirst > [ih][n + 1].PriceFirst && [ih][n + 2].PDrCotVal >= 1.01 * [ih][n + 2].PriceFirst && [ih][n].PDrCotVal >= 1.01 * [ih][n].PriceFirst && [ih][n].PDrCotVal > [ih][n + 1].PDrCotVal && [ih][n + 1].PDrCotVal > [ih][n + 2].PDrCotVal && [ih][n + 2].PDrCotVal > [ih][n + 1].PriceFirst && [ih][n + 1].PriceFirst > [ih][n + 2].PriceFirst && [ih][n + 1].PDrCotVal > [ih][n].PriceFirst)
+		{
+			(Candle36 = "Three White Soldiers (سه سرباز سفید)");
+			CPscore += 3;
+		}
+		else
+		{
+			(Candle36 = "");
+		}
+		//------------
+		var Candle37 = ""
+		if ([ih][n + 2].PriceFirst >= 1.01 * [ih][n + 2].PDrCotVal && [ih][n + 1].PriceFirst >= 1.01 * [ih][n + 1].PDrCotVal && [ih][n].PriceFirst > [ih][n + 1].PDrCotVal && [ih][n].PriceFirst >= 1.01 * [ih][n].PDrCotVal && [ih][n + 1].PriceFirst > [ih][n + 2].PDrCotVal && [ih][n + 1].PriceFirst > [ih][n].PriceFirst && [ih][n + 2].PriceFirst > [ih][n + 1].PriceFirst)
+		{
+			(Candle37 = "Three Black Crows (سه کلاغ سیاه)");
+			CPscore -= 3;
+		}
+		else
+		{
+			(Candle37 = "");
+		}
+		//------------
+		var Candle38 = ""
+		if ([ih][n + 1].PriceFirst < [ih][n + 1].PDrCotVal && [ih][n].PriceFirst >= [ih][n + 1].PriceFirst && [ih][n + 1].PriceFirst > [ih][n + 2].PDrCotVal && [ih][n + 2].PriceFirst > [ih][n + 1].PDrCotVal && [ih][n].PDrCotVal >= 1.01 * [ih][n].PriceFirst && [ih][n].PDrCotVal > [ih][n + 2].PriceFirst)
+		{
+			(Candle38 = "Three Inside Up (سه گانه داخلی صعودی)");
+			CPscore += 3;
+		}
+		else
+		{
+			(Candle38 = "");
+		}
+		//------------
+		var Candle39 = ""
+		if ([ih][n + 2].PriceFirst > [ih][n].PDrCotVal && [ih][n + 2].PDrCotVal >= [ih][n + 1].PriceFirst && [ih][n].PriceFirst >= 1.01 * [ih][n].PDrCotVal && [ih][n + 1].PDrCotVal > [ih][n + 2].PriceFirst && [ih][n + 1].PDrCotVal < [ih][n + 1].PriceFirst && [ih][n].PriceFirst <= [ih][n + 1].PriceFirst)
+		{
+			(Candle39 = "Three Inside Down (سه گانه داخلی نزولی)");
+			CPscore -= 3;
+		}
+		else
+		{
+			(Candle39 = "");
+		}
+		//------------
+		var Candle40 = ""
+		if ([ih][n + 2].PriceFirst > [ih][n + 2].PDrCotVal && [ih][n + 1].PDrCotVal >= [ih][n + 2].PriceFirst && [ih][n].PDrCotVal >= 1.01 * [ih][n].PriceFirst && [ih][n].PDrCotVal > [ih][n + 1].PDrCotVal && [ih][n + 2].PDrCotVal >= [ih][n + 1].PriceFirst)
+		{
+			(Candle40 = "Three Outside Up (سه گانه خارجی صعودی)");
+			CPscore += 3;
+		}
+		else
+		{
+			(Candle40 = "");
+		}
+		//------------
+		var Candle41 = ""
+		if ([ih][n + 2].PDrCotVal > [ih][n + 2].PriceFirst && [ih][n].PriceFirst <= [ih][n + 1].PriceFirst && [ih][n + 1].PriceFirst >= [ih][n + 2].PDrCotVal && [ih][n + 2].PriceFirst >= [ih][n + 1].PDrCotVal && [ih][n].PriceFirst >= 1.01 * [ih][n].PDrCotVal && [ih][n + 1].PDrCotVal > [ih][n].PDrCotVal)
+		{
+			(Candle41 = "Three Outside Down (سه گانه خارجی نزولی)");
+			CPscore -= 3;
+		}
+		else
+		{
+			(Candle41 = "");
+		}
+		//------------
+		var Candle42 = ""
+		var Canmm1 = Math.max([ih][n + 1].PDrCotVal, [ih][n + 1].PriceFirst);
+		var Canmm2 = Math.min([ih][n + 1].PDrCotVal, [ih][n + 1].PriceFirst);
+		if ([ih][n + 2].PriceFirst >= 1.01 * [ih][n + 2].PDrCotVal && [ih][n].PDrCotVal >= 1.01 * [ih][n].PriceFirst && [ih][n].PDrCotVal >= 0.5 * ([ih][n + 2].PriceFirst + [ih][n + 2].PDrCotVal) && Canmm1 > Canmm2 && Canmm1 < (([ih][n + 2].PriceFirst - [ih][n + 2].PDrCotVal) / 5) + [ih][n + 2].PDrCotVal && Canmm1 < (([ih][n].PDrCotVal - [ih][n].PriceFirst) / 5) + [ih][n].PriceFirst && Canmm1 < 1.01 * Canmm2)
+		{
+			(Candle42 = "Morning Star (ستاره صبحگاهی)");
+			CPscore += 3;
+		}
+		else
+		{
+			(Candle42 = "");
+		}
+		//------------
+		var Candle43 = ""
+		if ([ih][n + 2].PDrCotVal >= 1.01 * [ih][n + 2].PriceFirst && [ih][n].PriceFirst >= 1.01 * [ih][n].PDrCotVal && [ih][n].PDrCotVal <= 0.5 * ([ih][n + 2].PriceFirst + [ih][n + 2].PDrCotVal) && Canmm1 > Canmm2 && Canmm2 > ((([ih][n + 2].PDrCotVal - [ih][n + 2].PriceFirst) * 4) / 5) + [ih][n + 2].PriceFirst && Canmm2 > ((([ih][n].PriceFirst - [ih][n].PDrCotVal) * 4) / 5) + [ih][n].PDrCotVal && Canmm1 < 1.01 * Canmm2)
+		{
+			(Candle43 = "Evening Star (ستاره عصرگاهی)");
+			CPscore -= 3;
+		}
+		else
+		{
+			(Candle43 = "");
+		}
+		//------------
+		var Candle44 = ""
+		if ([ih][n + 1].PDrCotVal > [ih][n + 1].PriceFirst && [ih][n].PDrCotVal < [ih][n + 2].PriceMin && [ih][n + 2].PriceMax < [ih][n + 1].PriceMin && [ih][n].PriceFirst < [ih][n + 1].PDrCotVal && [ih][n].PriceFirst > [ih][n + 1].PriceFirst && [ih][n].PDrCotVal > [ih][n + 2].PriceMax && [ih][n + 2].PDrCotVal >= 1.01 * [ih][n + 2].PriceFirst)
+		{
+			(Candle44 = "Upside Tasuki Gap (گپ تاسوکی رو به بالا)");
+			CPscore -= 3;
+		}
+		else
+		{
+			(Candle44 = "");
+		}
+		//------------
+		var Candle45 = ""
+		if ([ih][n + 1].PriceFirst > [ih][n + 1].PDrCotVal && [ih][n].PDrCotVal < [ih][n + 2].PriceMin && [ih][n + 2].PriceMin > [ih][n + 1].PriceMax && [ih][n].PriceFirst > [ih][n + 1].PDrCotVal && [ih][n].PriceFirst < [ih][n + 1].PriceFirst && [ih][n].PDrCotVal > [ih][n + 1].PriceMax && [ih][n + 2].PriceFirst >= 1.01 * [ih][n + 2].PDrCotVal)
+		{
+			(Candle45 = "Downside Tasuki Gap (گپ تاسوکی رو به پایین)");
+			CPscore += 3;
+		}
+		else
+		{
+			(Candle45 = "");
+		}
+		//*******************************************الگوی پین بار هفتگی*******************************************
+		var PinBW = 0;
+		var PinBB = 0;
+		var weekClose = [ih][0].PDrCotVal;
+		var weekOpen = [ih][4].PriceFirst;
+		var weekHigh = 0;
+		var weekLow = 1000000;
+		var Wi;
+		// محاسبه بالاترین و پایین‌ترین قیمت در بازه زمانی هفتگی
+		for (Wi = 0; Wi <= 4; Wi++)
+		{
+			if ([ih][Wi].PriceMax > weekHigh)
+			{
+				weekHigh = [ih][Wi].PriceMax;
+			}
+			if ([ih][Wi].PriceMin < weekLow)
+			{
+				weekLow = [ih][Wi].PriceMin;
+			}
+		}
+		var weekRange = weekHigh - weekLow;
+		var weekBodyLength = Math.abs(weekOpen - weekClose);
+		var bodySizePct = Math.round((weekBodyLength / weekRange) * 100);
+		var topSection = weekHigh - Math.round(weekRange * 0.33);
+		var bottomSection = weekLow + Math.round(weekRange * 0.33);
+		if ((tvol) >= 4000000 && weekHigh != weekLow && weekOpen != weekClose)
+		{
+			if ((weekOpen >= topSection && weekClose >= topSection) && (bodySizePct >= 4 && bodySizePct <= 33))
+			{
+				if (weekClose > weekOpen)
+				{
+					PinBW = 1;
+				}
+			}
+			if ((weekOpen <= bottomSection && weekClose <= bottomSection) && (bodySizePct >= 4 && bodySizePct <= 33))
+			{
+				if (weekClose < weekOpen)
+				{
+					PinBB = 1;
+				}
+			}
+		}
+		var CandleW5 = "";
+		if (weekClose > weekOpen)
+		{
+			CandleW5 = "🟩";
+			Pscore += 1
+		}
+		else if (weekClose < weekOpen)
+		{
+			CandleW5 = "🟥";
+			Pscore -= 1
+		}
+		else
+		{
+			CandleW5 = "خنثی";
+		}
+		if (PinBW === 1)
+		{
+			var PinBWp = " 🟢";
+			Pscore += 2
+		}
+		else
+		{
+			PinBWp = " -";
+		}
+		if (PinBB === 1)
+		{
+			var PinBBp = " 🔴";
+			Pscore -= 2
+		}
+		else
+		{
+			PinBBp = " -";
+		}
+		//*******************************************هایکن آشی*******************************************
+		if ([ih][0].PClosing != (pc) && [ih][0].ZTotTran != (tno) && [ih][0].QTotCap != (tval))
+		{
+			var len = [ih].length;
+			if (typeof [ih][0].fixed == 'undefined')
+			{
+				for (var i = len; i > 0; i--)
+				{
+					if (typeof [ih][i] == 'undefined')
+					{
+                [ih][i] = {};
+					}
+            [ih][i].PriceFirst = [ih][i - 1].PriceFirst;
+            [ih][i].PClosing = [ih][i - 1].PClosing;
+            [ih][i].PDrCotVal = [ih][i - 1].PDrCotVal;
+            [ih][i].ZTotTran = [ih][i - 1].PriceFirst;
+            [ih][i].QTotTran5J = [ih][i - 1].QTotTran5J;
+            [ih][i].QTotCap = [ih][i - 1].QTotCap;
+            [ih][i].PriceChange = [ih][i - 1].PriceChange;
+            [ih][i].PriceMin = [ih][i - 1].PriceMin;
+            [ih][i].PriceMax = [ih][i - 1].PriceMax;
+            [ih][i].PriceYesterday = [ih][i - 1].PriceYesterday;
+				}
+        [ih][0].fixed = 1;
+			}
+    [ih][0].PriceFirst = (pf);
+    [ih][0].PClosing = (pc);
+    [ih][0].PDrCotVal = (pl);
+    [ih][0].ZTotTran = (tno);
+    [ih][0].QTotTran5J = (tvol);
+    [ih][0].QTotCap = (tval);
+    [ih][0].PriceChange = (pcc);
+    [ih][0].PriceMin = (pmin);
+    [ih][0].PriceMax = (pmax);
+    [ih][0].PriceYesterday = (py);
+		}
+		var len = [ih].length;
+		for (var i = len - 2; i >= 0; i--)
+		{
+    [ih][i].HA_C = ([ih][i].PDrCotVal + [ih][i].PriceFirst + [ih][i].PriceMax + [ih][i].PriceMin) / 4;
+			if (i == len - 2)
+			{
+        [ih][i].HA_O = ([ih][i].PDrCotVal + [ih][i].PriceFirst) / 2;
+			}
+			else
+			{
+        [ih][i].HA_O = ([ih][i + 1].HA_C + [ih][i + 1].HA_O) / 2;
+			}
+    [ih][i].HA_H = Math.max([ih][i].HA_C, [ih][i].HA_O, [ih][i].PriceMax);
+    [ih][i].HA_L = Math.min([ih][i].HA_C, [ih][i].HA_O, [ih][i].PriceMin);
+		}
+		var heikinashi5 = "➖";
+		var heikinashi4 = "➖";
+		var heikinashi3 = "➖";
+		var heikinashi2 = "➖";
+		var heikinashi1 = "➖";
+		if ([ih][4].HA_C > [ih][4].HA_O)
+		{
+			heikinashi5 = "🟩";
+		}
+		else if ([ih][4].HA_C < [ih][4].HA_O)
+		{
+			heikinashi5 = "🟥";
+		}
+		if ([ih][3].HA_C > [ih][3].HA_O)
+		{
+			heikinashi4 = "🟩";
+		}
+		else if ([ih][3].HA_C < [ih][3].HA_O)
+		{
+			heikinashi4 = "🟥";
+		}
+		if ([ih][2].HA_C > [ih][2].HA_O)
+		{
+			heikinashi3 = "🟩";
+		}
+		else if ([ih][2].HA_C < [ih][2].HA_O)
+		{
+			heikinashi3 = "🟥";
+		}
+		if ([ih][1].HA_C > [ih][1].HA_O)
+		{
+			heikinashi2 = "🟩";
+		}
+		else if ([ih][1].HA_C < [ih][1].HA_O)
+		{
+			heikinashi2 = "🟥";
+		}
+		if ([ih][0].HA_C > [ih][0].HA_O)
+		{
+			heikinashi1 = "🟩";
+			Pscore += 1
+		}
+		else if ([ih][0].HA_C < [ih][0].HA_O)
+		{
+			heikinashi1 = "🟥";
+			Pscore -= 1
+		}
+		var hasNoShadow = "";
+		if ([ih][0].HA_L == [ih][0].HA_O)
+		{
+			hasNoShadow = "→L Shdw 0";
+			Pscore += 2
+		}
+		else if ([ih][0].HA_H == [ih][0].HA_O)
+		{
+			hasNoShadow = "→H Shdw 0"
+			Pscore -= 2
+		}
+		//*******************************************دنچیان*******************************************
+		var periodday1 = 100;
+		var periodday2 = 50;
+		var periodday3 = 20;
+		let Donch = 0;
+		while (Donch < [ih].length)
+		{
+			if ([ih][Donch].QTotTran5J == 0)
+			{
+        [ih].splice(Donch, 1);
+			}
+			else
+			{
+				Donch++;
+			}
+		}
+		
+		function Dupper(Doday, Doperiod)
+		{
+			let Domax = 0
+			for (let Doni = Doday; Doni < Doday + Doperiod; Doni++)
+			{
+				if ([ih][Doni].PriceMax > Domax)
+				{
+					Domax = [ih][Doni].PriceMax;
+				}
+			}
+			return Domax;
+		}
+		
+		function Dlower(Doday, Doperiod)
+		{
+			let Domin = 99999999
+			for (let Doni = Doday; Doni < Doday + Doperiod; Doni++)
+			{
+				if ([ih][Doni].PriceMin < Domin)
+				{
+					Domin = [ih][Doni].PriceMin;
+				}
+			}
+			return Domin;
+		}
+		
+		function Domed(Doday, Doperiod)
+		{
+			return (Dupper(Doday, Doperiod) + Dlower(Doday, Doperiod)) / 2;
+		}
+		//---------1
+		var lowerline1 = Dlower(0, periodday1);
+		var upperline1 = Dupper(0, periodday1);
+		var middleline1 = Domed(0, periodday1);
+		var magicstick1 = ""
+		if ((pmax) > middleline1 && (pmin) > middleline1)
+		{
+			magicstick1 = "🟢"
+			Pscore += 3;
+		}
+		else if ((pmax) > middleline1 && (pmin) < middleline1)
+		{
+			magicstick1 = "🟡"
+		}
+		else if ((pmax) < middleline1)
+		{
+			magicstick1 = "🔴"
+			Pscore -= 3;
+		}
+		else
+		{
+			magicstick1 = "-"
+		}
+		var uplined1 = ((upperline1 - (pmax)) / (pmax)) * 100
+		var lowlined1 = (((lowerline1 - (pmin)) / (pmin)) * 100) * -1
+		//---------2
+		var lowerline2 = Dlower(0, periodday2);
+		var upperline2 = Dupper(0, periodday2);
+		var middleline2 = Domed(0, periodday2);
+		var magicstick2 = ""
+		if ((pmax) > middleline2 && (pmin) > middleline2)
+		{
+			magicstick2 = "🟢"
+			Pscore += 2;
+		}
+		else if ((pmax) > middleline2 && (pmin) < middleline2)
+		{
+			magicstick2 = "🟡"
+		}
+		else if ((pmax) < middleline2)
+		{
+			magicstick2 = "🔴"
+			Pscore -= 2;
+		}
+		else
+		{
+			magicstick2 = "-"
+		}
+		var uplined2 = ((upperline2 - (pmax)) / (pmax)) * 100
+		var lowlined2 = (((lowerline2 - (pmin)) / (pmin)) * 100) * -1
+		//---------3
+		var lowerline3 = Dlower(0, periodday3);
+		var upperline3 = Dupper(0, periodday3);
+		var middleline3 = Domed(0, periodday3);
+		var magicstick3 = ""
+		if ((pmax) > middleline3 && (pmin) > middleline3)
+		{
+			magicstick3 = "🟢"
+			Pscore += 1;
+		}
+		else if ((pmax) > middleline3 && (pmin) < middleline3)
+		{
+			magicstick3 = "🟡"
+		}
+		else if ((pmax) < middleline3)
+		{
+			magicstick3 = "🔴"
+			Pscore -= 1;
+		}
+		else
+		{
+			magicstick3 = "-"
+		}
+		var uplined3 = ((upperline3 - (pmax)) / (pmax)) * 100
+		var lowlined3 = (((lowerline3 - (pmin)) / (pmin)) * 100) * -1
+		//*******************************************valueprofile*******************************************
+		function calculateVolumeProfile(startDay, endDay)
+		{
+			var startIndex = 0;
+			var todayIndex = endDay - 1;
+			var vpvolume = [];
+			var vpminPrice = Math.min(...[ih].slice(startIndex, todayIndex + 1)
+				.map(x => x.PriceMin)
+				.filter(x => x > 0));
+			var vpmaxPrice = Math.max(...[ih].slice(startIndex, todayIndex + 1)
+				.map(x => x.PriceMax));
+			var vpintervalDivider = todayIndex;
+			var vpinterval = (vpmaxPrice - vpminPrice) / vpintervalDivider;
+			for (var i = startIndex; i <= todayIndex; i++)
+			{
+				var vpindex1 = Math.floor(([ih][i].PriceFirst - vpminPrice) / vpinterval);
+				var vpindex2 = Math.floor(([ih][i].PDrCotVal - vpminPrice) / vpinterval);
+				var vpindex3 = Math.floor(([ih][i].PriceMin - vpminPrice) / vpinterval);
+				var vpindex4 = Math.floor(([ih][i].PriceMax - vpminPrice) / vpinterval);
+				vpvolume[vpindex1] = (vpvolume[vpindex1] || 0) + [ih][i].QTotCap / 4;
+				vpvolume[vpindex2] = (vpvolume[vpindex2] || 0) + [ih][i].QTotCap / 4;
+				vpvolume[vpindex3] = (vpvolume[vpindex3] || 0) + [ih][i].QTotCap / 4;
+				vpvolume[vpindex4] = (vpvolume[vpindex4] || 0) + [ih][i].QTotCap / 4;
+			}
+			vpvolume = vpvolume.filter(x => x !== undefined);
+			var vpmaxVolume = Math.max(...vpvolume);
+			var vppeakIndex = vpvolume.indexOf(vpmaxVolume);
+			var VPin1 = Math.floor(vppeakIndex * vpinterval + vpminPrice);
+			var VPin2 = Math.floor((vppeakIndex - 1) * vpinterval + vpminPrice);
+			var VPin3 = vpmaxVolume;
+			return {
+				VPin1: VPin1
+				, VPin2: VPin2
+				, VPin3: VPin3
+			, };
+		}
+		var result1 = calculateVolumeProfile(0, 20);
+		var result2 = calculateVolumeProfile(0, 50);
+		var result3 = calculateVolumeProfile(0, 100);
+		var VPday1 = (result1.VPin1);
+		//var VPday2 = (result1.VPin2);
+		var VPday3 = (result1.VPin3) / 1000000000;
+		var VPday4 = (result2.VPin1);
+		//var VPday5 = (result2.VPin2);
+		var VPday6 = (result2.VPin3) / 1000000000;
+		var VPday7 = (result3.VPin1);
+		//var VPday8 = (result3.VPin2);
+		var VPday9 = (result3.VPin3) / 1000000000;
+		//*******************************************موقعیت*******************************************
+		{
+			var MaxPrice = function()
+			{
+				var maxMR = (pl);
+				var x;
+				for (x = 0; x < [ih].length; x++)
+					if (maxMR < [ih][x].PClosing) maxMR = [ih][x].PClosing;
+				return maxMR;
+			};
+			var MinPrice = function()
+			{
+				var minMR = (pl);
+				var nmo;
+				for (nmo = 0; nmo < [ih].length; nmo++)
+					if (minMR > [ih][nmo].PClosing) minMR = [ih][nmo].PClosing;
+				return minMR;
+			};
+			MogheyiatGh = Math.round((((pl) - MinPrice()) / (MaxPrice() - MinPrice())) * 100)
+		}
+		{
+			var FSmaxP = (pmax);
+			var FSmaxD = 0;
+			var FSminP = (pmin);
+			var FSminD = 0;
+			var FSrecords = [ih].length;
+			for (var i = 0; i < FSrecords; i++)
+			{
+				if (typeof [ih][i] != "undefined")
+				{
+					if ([ih][i].PriceMax > FSmaxP)
+					{
+						var FSmaxP = [ih][i].PriceMax;
+						var FSmaxD = i;
+					}
+					if ([ih][i].PriceMin != 0 && [ih][i].PriceMin < FSminP)
+					{
+						var FSminP = [ih][i].PriceMin;
+						var FSminD = i;
+					}
+				}
+			}
+			var FSmaxX = (100 * (FSmaxP - (pl)) / FSmaxP);
+			var FSminX = (100 * ((pl) - FSminP) / FSminP);
+		}
+		//*******************************************سود*******************************************
+		{
+			var SoodP = Math.round(((pc) / (([ih][0].PClosing * [ih][0].QTotTran5J + [ih][1].PClosing * [ih][1].QTotTran5J + [ih][2].PClosing * [ih][2].QTotTran5J + [ih][3].PClosing * [ih][3].QTotTran5J + [ih][4].PClosing * [ih][4].QTotTran5J + [ih][5].PClosing * [ih][5].QTotTran5J + [ih][6].PClosing * [ih][6].QTotTran5J + [ih][7].PClosing * [ih][7].QTotTran5J + [ih][8].PClosing * [ih][8].QTotTran5J + [ih][9].PClosing * [ih][9].QTotTran5J) / ([ih][0].QTotTran5J + [ih][1].QTotTran5J + [ih][2].QTotTran5J + [ih][3].QTotTran5J + [ih][4].QTotTran5J + [ih][5].QTotTran5J + [ih][6].QTotTran5J + [ih][7].QTotTran5J + [ih][8].QTotTran5J + [ih][9].QTotTran5J))) * 100) / 100
+		}
+		var SoodP1 = Math.round((SoodP * 100) - 100)
+		var SoodP10 = ""
+		if (SoodP == 1)
+		{
+			SoodP10 = "سر به سر"
+		}
+		else
+		{
+			SoodP10 = SoodP1 + "%"
+		}
+		//*******************************************ایچیموکو*******************************************
+		var High = function(periodich, dich)
+		{
+			var lenich = periodich + dich;
+			var max_H = 0;
+			for (var i = 0 + dich; i < lenich; i++)
+			{
+				max_H = Math.max([ih][i].PriceMax, max_H);
+			}
+			return max_H;
+		}
+		var Low = function(periodich, dich)
+		{
+			var lenich = periodich + dich;
+			var min_L = 1000000;
+			for (var i = 0 + dich; i < lenich; i++)
+			{
+				if ([ih][i].PriceMin > 0)
+				{
+					min_L = Math.min([ih][i].PriceMin, min_L);
+				}
+			}
+			return min_L;
+		}
+		//+++++ Delay Tenkan Sen / Kijun Sen
+		var TenkanD = function(dich)
+		{
+			var TenkanD = (High(9, dich) + Low(9, dich)) / 2;
+			return TenkanD;
+		}
+		var KijunD = function(dich)
+		{
+			var KijunD = (High(26, dich) + Low(26, dich)) / 2;
+			return KijunD;
+		}
+		//+++++ CURRENT Cloud
+		var SenkouA = function(dich)
+		{
+			var SenkouA = ((High(9, dich) + Low(9, dich)) / 2 + (High(26, dich) + Low(26, dich)) / 2) / 2;
+			return SenkouA;
+		}
+		var SenkouB = function(dich)
+		{
+			var SenkouB = (High(52, dich) + Low(52, dich)) / 2;
+			return SenkouB;
+		}
+		//+++++ Chikou Span
+		var Chikou = [ih][0].PDrCotVal;
+		//---------------------------------------------
+		var IchiScore = 0;
+		var SignalTK1 = "";
+		var SignalTK2 = "";
+		if (TenkanD(1) < KijunD(1) && TenkanD(0) > KijunD(0))
+		{
+			SignalTK1 = " ✅"
+			IchiScore += 1
+		}
+		else if (TenkanD(1) > KijunD(1) && TenkanD(0) < KijunD(0))
+		{
+			SignalTK1 = " ❌"
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalTK1 = " -"
+		}
+		if (TenkanD(0) > TenkanD(1))
+		{
+			SignalTK2 = "🔺"
+			IchiScore += 1
+		}
+		else if (TenkanD(0) < TenkanD(1))
+		{
+			SignalTK2 = "🔻"
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalTK2 = "↔️"
+		}
+		var SignalTK3 = ""
+		if (KijunD(0) > KijunD(1))
+		{
+			SignalTK3 = "🔺"
+			IchiScore += 1
+		}
+		else if (KijunD(0) < KijunD(1))
+		{
+			SignalTK3 = "🔻"
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalTK3 = "↔️"
+		}
+		var SignalTK4 = ""
+		if (TenkanD(0) > KijunD(0))
+		{
+			SignalTK4 = "➕"
+			star += "⭐️"
+			starplus1 += 1
+			IchiScore += 1
+		}
+		else if (TenkanD(0) < KijunD(0))
+		{
+			SignalTK4 = "➖"
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalTK4 = "↔️"
+		}
+		//---------------------------------------------
+		var SignalCT = ""
+		if ([ih][0].PriceMin > TenkanD(0))
+		{
+			SignalCT = "کندل کامل بالای تنکانسن"
+			IchiScore += 1
+		}
+		else if ([ih][0].PriceMax < TenkanD(0))
+		{
+			SignalCT = "کندل کامل پایین تنکانسن"
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalCT = "کندل درگیر تنکانسن"
+		}
+		//---------------------------------------------
+		var SignalCK = ""
+		if ([ih][0].PriceMin > KijunD(0))
+		{
+			SignalCK = "کندل کامل بالای کیجونسن"
+			IchiScore += 1
+		}
+		else if ([ih][0].PriceMax < KijunD(0))
+		{
+			SignalCK = "کندل کامل پایین کیجونسن"
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalCK = "کندل درگیر کیجونسن"
+		}
+		//---------------------------------------------
+		var SignalCCloud = ""
+		if ([ih][0].PriceMin > SenkouA(25) && [ih][0].PriceMin > SenkouB(25))
+		{
+			SignalCCloud = "کندل کامل بالای "
+			IchiScore += 1
+		}
+		else if ([ih][0].PriceMax < SenkouA(25) && [ih][0].PriceMax < SenkouB(25))
+		{
+			SignalCCloud = "کندل کامل پایین "
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalCCloud = "کندل داخل یا درگیر "
+		}
+		//---------------------------------------------
+		var SignalCloud1 = ""
+		var SignalCloud1Cross = ""
+		if (SenkouA(25) > SenkouB(25))
+		{
+			SignalCloud1 = "ابر سبز فعلی "
+			IchiScore += 1
+		}
+		else if (SenkouA(25) < SenkouB(25))
+		{
+			SignalCloud1 = "ابر قرمز فعلی "
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalCloud1 = "ابر فعلی فلت "
+		}
+		//---------------------------------------------
+		var SignalZC1 = ((SenkouA(25) - SenkouB(25)) / SenkouA(25) * 100)
+		var SignalZC2 = ""
+		if (SignalZC1 >= 0)
+		{
+			SignalZC2 = SignalZC1
+		}
+		else if (SignalZC1 < 0)
+		{
+			SignalZC2 = SignalZC1 * (-1)
+		}
+		//---------------------------------------------
+		if (SenkouA(26) < SenkouB(26) && SenkouA(25) > SenkouB(25))
+		{
+			SignalCloud1Cross = " و کراس مثبت"
+			IchiScore += 1
+		}
+		else if (SenkouA(26) > SenkouB(26) && SenkouA(25) < SenkouB(25))
+		{
+			SignalCloud1Cross = " و کراس منفی"
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalCloud1Cross = ""
+		}
+		//---------------------------------------------
+		var SignalCCloud2 = ""
+		if ([ih][0].PriceMin > SenkouA(0) && [ih][0].PriceMin > SenkouB(0))
+		{
+			SignalCCloud2 = "کندل کامل بالای "
+			IchiScore += 1
+		}
+		else if ([ih][0].PriceMax < SenkouA(0) && [ih][0].PriceMax < SenkouB(0))
+		{
+			SignalCCloud2 = "کندل کامل پایین "
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalCCloud2 = "کندل هم سطح "
+		}
+		//---------------------------------------------
+		var SignalCloud2 = ""
+		var SignalCloud2Cross = ""
+		if (SenkouA(0) > SenkouB(0))
+		{
+			SignalCloud2 = "ابر سبز آتی "
+			IchiScore += 1
+		}
+		else if (SenkouA(0) < SenkouB(0))
+		{
+			SignalCloud2 = "ابر قرمز آتی "
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalCloud2 = "ابر آتی فلت "
+		}
+		//---------------------------------------------
+		var SignalZC3 = ((SenkouA(0) - SenkouB(0)) / SenkouA(0) * 100)
+		var SignalZC4 = ""
+		if (SignalZC3 >= 0)
+		{
+			SignalZC4 = SignalZC3
+		}
+		else if (SignalZC3 < 0)
+		{
+			SignalZC4 = SignalZC3 * (-1)
+		}
+		//---------------------------------------------
+		if (SenkouA(1) < SenkouB(1) && SenkouA(0) > SenkouB(0))
+		{
+			SignalCloud2Cross = " و کراس مثبت"
+			IchiScore += 1
+		}
+		else if (SenkouA(1) > SenkouB(1) && SenkouA(0) < SenkouB(0))
+		{
+			SignalCloud2Cross = " و کراس منفی"
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalCloud2Cross = ""
+		}
+		//---------------------------------------------
+		var SignalChikou1 = ""
+		if (Chikou > SenkouA(50) && Chikou > SenkouB(50))
+		{
+			SignalChikou1 = "چیکو اسپن کامل بالای ابر"
+			IchiScore += 1
+		}
+		else if (Chikou < SenkouA(50) && Chikou < SenkouB(50))
+		{
+			SignalChikou1 = "چیکو اسپن کامل پایین ابر"
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalChikou1 = "چیکو اسپن داخل یا درگیر با ابر"
+		}
+		//---------------------------------------------
+		var SignalTC = ""
+		if (TenkanD(0) > SenkouA(25) && TenkanD(0) > SenkouB(25))
+		{
+			SignalTC = "تنکانسن کامل بالای "
+			IchiScore += 1
+		}
+		else if (TenkanD(0) < SenkouA(25) && TenkanD(0) < SenkouB(25))
+		{
+			SignalTC = "تنکانسن کامل پایین "
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalTC = "تنکانسن داخل یا درگیر "
+		}
+		//---------------------------------------------
+		var SignalKC = ""
+		if (KijunD(0) > SenkouA(25) && KijunD(0) > SenkouB(25))
+		{
+			SignalKC = "کیجونسن کامل بالای "
+			IchiScore += 1
+		}
+		else if (KijunD(0) < SenkouA(25) && KijunD(0) < SenkouB(25))
+		{
+			SignalKC = "کیجونسن کامل پایین "
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalKC = "کیجونسن داخل یا درگیر "
+		}
+		//---------------------------------------------
+		var SignalChikou2 = ""
+		if (Chikou > TenkanD(25))
+		{
+			SignalChikou2 = "چیکو اسپن کامل بالای تنکانسن"
+			IchiScore += 1
+		}
+		else if (Chikou < TenkanD(25))
+		{
+			SignalChikou2 = "چیکو اسپن کامل پایین تنکانسن"
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalChikou2 = "چیکو اسپن درگیر تنکانسن"
+		}
+		//---------------------------------------------
+		var SignalChikou3 = ""
+		if (Chikou > KijunD(25))
+		{
+			SignalChikou3 = "چیکو اسپن کامل بالای کیجونسن"
+			IchiScore += 1
+		}
+		else if (Chikou < KijunD(25))
+		{
+			SignalChikou3 = "چیکو اسپن کامل پایین کیجونسن"
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalChikou3 = "چیکو اسپن درگیر کیجونسن"
+		}
+		//---------------------------------------------
+		var SignalChikou4 = ""
+		if (Chikou > [ih][25].PriceMax)
+		{
+			SignalChikou4 = "چیکو اسپن کامل بالای کندل"
+			IchiScore += 1
+		}
+		else if (Chikou < [ih][25].PriceMin)
+		{
+			SignalChikou4 = "چیکو اسپن کامل پایین کندل"
+			IchiScore -= 1
+		}
+		else
+		{
+			SignalChikou4 = "چیکو اسپن درگیر کندل"
+		}
+		//*******************************************BOLINGER*******************************************
+		function STDV(day, start)
+		{
+			var sum = 0;
+			for (var i = start; i < start + day; i++)
+			{
+				sum += [ih][i].PDrCotVal;
+			}
+			var avg = sum / day;
+			var sum2 = 0;
+			for (var i = start; i < start + day; i++)
+			{
+				sum2 += Math.pow([ih][i].PDrCotVal - avg, 2);
+			}
+			var avg2 = sum2 / day;
+			var stdv = Math.sqrt(avg2);
+			return stdv;
+		}
+		
+		function bolinger(day, x, start)
+		{
+			var sum = 0;
+			for (var i = start; i < start + day; i++)
+			{
+				sum += [ih][i].PDrCotVal;
+			}
+			var avg = sum / day;
+			var stdv = STDV(day, start);
+			var middleBand = avg;
+			var upperBand = middleBand + x * stdv;
+			var lowerBand = middleBand - x * stdv;
+			return [lowerBand, middleBand, upperBand];
+		}
+		var BB = bolinger(20, 2, 0);
+		var BB_Before = bolinger(20, 2, 3);
+		var Middle_Line = "";
+		var Distance_Down = (((pl) - BB[0]) / (BB[0]) * 100);
+		var Distance_Middle = (((pl) - BB[1]) / (BB[1]) * 100);
+		var Distance_UP = ((BB[2] - (pl)) / ((pl)) * 100);
+		if ((pl) > BB[1])
+		{
+			Middle_Line = "🔺"
+			Weightscore += 1
+		}
+		else if ((pl) < BB[1])
+		{
+			Middle_Line = "🔻"
+			Weightscore -= 1
+		}
+		else
+		{
+			Middle_Line = " ↔️"
+		}
+		BOLINGER = "⤴️ " + '*' + (Distance_Down)
+			.toFixed(1) + "%" + '*' + " ⤵️ " + '*' + (Distance_UP)
+			.toFixed(1) + "%" + '*' + " ↔️ " + '*' + (Distance_Middle)
+			.toFixed(1) + "%" + '*' + Middle_Line;
+		//*******************************************BOLINGER %B*******************************************
+		{
+			var period1 = 20;
+			var Mult = 2;
+			len = [ih].length - 1;
+			var j = 0;
+			for (i = 0; i < len; i++)
+			{
+				if ([ih][i].QTotTran5J > 0)
+				{
+					j++
+				}
+				else
+				{}
+			}
+			len = j;
+			var Close = [];
+			Close.lenght = len;
+			var SMA = [];
+			SMA.lenght = len;
+			var sumDV = [];
+			sumDV.lenght = len;
+			var STDEV = [];
+			STDEV.lenght = len;
+			var UpperBand = [];
+			UpperBand.lenght = len;
+			var LowerBand = [];
+			LowerBand.lenght = len;
+			var PB = [];
+			PB.lenght = len;
+			var Vol = [];
+			Vol.lenght = len;
+			var HighB = [];
+			HighB.lenght = len;
+			var LowB = [];
+			LowB.lenght = len;
+			var Open = [];
+			Open.lenght = len;
+			j = 0;
+			for (i = 0; i <= len + j; i++)
+			{
+				if ([ih][i].QTotTran5J > 0)
+				{
+					Close[i - j] = [ih][i].PDrCotVal;
+					HighB[i - j] = [ih][i].PriceMax;
+					LowB[i - j] = [ih][i].PriceMin;
+					Open[i - j] = [ih][i].PriceFirst;
+					Vol[i - j] = [ih][i].QTotTran5J;
+				}
+				else
+				{
+					j += 1
+				};
+			}
+			for (i = 0; i <= len - period1; i++)
+			{
+				sum = 0;
+				for (j = i; j < period1 + i; j++)
+				{
+					sum += Close[j]
+				}
+				SMA[i] = sum / period1;
+			}
+			for (i = 0; i <= len - period1; i++)
+			{
+				sum = 0;
+				for (j = i; j < period1 + i; j++)
+				{
+					sum += Math.pow((Close[j] - SMA[i]), 2);
+				}
+				sumDV[i] = sum;
+			}
+			for (i = 0; i <= len - period1; i++)
+			{
+				STDEV[i] = Math.sqrt(sumDV[i] / period1);
+			}
+			for (i = 0; i <= len - period1; i++)
+			{
+				UpperBand[i] = SMA[i] + STDEV[i] * Mult;
+				LowerBand[i] = SMA[i] - STDEV[i] * Mult;
+				PB[i] = (Close[i] - LowerBand[i]) / (UpperBand[i] - LowerBand[i]);
+			}
+			var BBR = ""
+			if (PB[0] > PB[1])
+			{
+				BBR = "🔺"
+				Weightscore += 1
+				Trendscore += 1
+			}
+			else if (PB[0] < PB[1])
+			{
+				BBR = "🔻"
+				Weightscore -= 1
+				Trendscore -= 1
+			}
+			else
+			{
+				BBR = " ↔️"
+			}
+			var BBMR = ""
+			if (PB[0] > 0.5)
+			{
+				BBMR = "➕"
+				Weightscore += 2
+			}
+			else if (PB[0] < 0.5)
+			{
+				BBMR = "➖"
+				Weightscore -= 2
+			}
+			else
+			{
+				BBMR = "↔️"
+			}
+		}
+		//*******************************************DEMA & TEMA*******************************************
+		{
+			{
+				var period1 = 20; //Long
+				var period2 = 10; //Short 
+				var alfa1 = 2 / (1 + period1);
+				var alfa2 = 2 / (1 + period2);
+			}
+			{
+				if ([ih][0].PClosing != (pc) && [ih][0].ZTotTran != (tno) && [ih][0].QTotCap != (tval))
+				{
+					var len = [ih].length;
+					if (typeof [ih][0].fixed == 'undefined')
+					{
+						for (var i = len; i > 0; i--)
+						{
+							if (typeof [ih][i] == 'undefined')
+							{
+                                                                [ih][i] = {};
+							}
+                                                        [ih][i].PDrCotVal = [ih][i - 1].PDrCotVal;
+                                                        [ih][i].QTotTran5J = [ih][i - 1].QTotTran5J;
+						}
+                                                [ih][0].fixed = 1;
+					}
+                                        [ih][0].PDrCotVal = (pl);
+                                        [ih][0].QTotTran5J = (tvol);
+				}
+			}
+			{
+				var len = [ih].length - 1;
+				var j = 0;
+				var Close = [];
+				Close.lenght = len + 1;
+				var EMA10 = [];
+				EMA10.lenght = len - period1;
+				var EMA20 = [];
+				EMA20.lenght = len - period2;
+				var EMA12 = [];
+				EMA12.lenght = len - period1;
+				var EMA22 = [];
+				EMA22.lenght = len - period2;
+				var DEMA1 = [];
+				DEMA1.lenght = len - period1;
+				var DEMA2 = [];
+				DEMA2.lenght = len - period1;
+			}
+			{
+				for (var i = 0; i <= len + j; i++)
+				{
+					if ([ih][i].QTotTran5J > 0)
+					{
+						Close[i - j] = [ih][i].PDrCotVal;
+					}
+					else
+					{
+						j += 1
+					};
+				}
+			}
+			{
+				var gainSum = 0;
+				var abss = 0;
+				for (var i = len - 1; i >= len - period1; i--)
+				{
+					gainSum += Close[i];
+				}
+				EMA10[len - period1] = (gainSum / period1);
+				EMA12[len - period1] = (gainSum / period1);
+				for (var i = len - period1 - 1; i >= 0; i--)
+				{
+					EMA10[i] = EMA10[i + 1] + alfa1 * (Close[i] - EMA10[i + 1]);
+					EMA12[i] = EMA12[i + 1] + alfa1 * (EMA10[i] - EMA12[i + 1]);
+					DEMA1[i] = (2 * EMA10[i]) - EMA12[i]
+				}
+			}
+			{
+				var gainSum = 0;
+				var abss = 0;
+				for (var i = len - 1; i >= len - period2; i--)
+				{
+					gainSum += Close[i];
+				}
+				EMA20[len - period2] = (gainSum / period2);
+				EMA22[len - period2] = (gainSum / period2);
+				for (var i = len - period2 - 1; i >= 0; i--)
+				{
+					EMA20[i] = EMA20[i + 1] + alfa2 * (Close[i] - EMA20[i + 1]);
+					EMA22[i] = EMA22[i + 1] + alfa2 * (EMA20[i] - EMA22[i + 1]);
+					DEMA2[i] = (2 * EMA20[i]) - EMA22[i]
+				}
+			}
+			{
+				var DEMA2R = ""
+				if (DEMA2[0] > DEMA2[1])
+				{
+					DEMA2R = "🔺"
+				}
+				else if (DEMA2[0] < DEMA2[1])
+				{
+					DEMA2R = "🔻"
+				}
+				else
+				{
+					DEMA2R = " ↔️"
+				}
+			}
+			{
+				var DEMA1R = ""
+				if (DEMA1[0] > DEMA1[1])
+				{
+					DEMA1R = "🔺"
+				}
+				else if (DEMA1[0] < DEMA1[1])
+				{
+					DEMA1R = "🔻"
+					Weightscore -= 1
+					Trendscore -= 1
+				}
+				else
+				{
+					DEMA1R = " ↔️"
+				}
+			}
+		}
+		//---------------------------------------------
+		{
+			{
+				var period1 = 30; //Long
+				var period2 = 10; //Short 
+				var alfa1 = 2 / (1 + period1);
+				var alfa2 = 2 / (1 + period2);
+			}
+			{
+				if ([ih][0].PClosing != (pc) && [ih][0].ZTotTran != (tno) && [ih][0].QTotCap != (tval))
+				{
+					var len = [ih].length;
+					if (typeof [ih][0].fixed == 'undefined')
+					{
+						for (var i = len; i > 0; i--)
+						{
+							if (typeof [ih][i] == 'undefined')
+							{
+                                                                [ih][i] = {};
+							}
+                                                        [ih][i].PDrCotVal = [ih][i - 1].PDrCotVal;
+                                                        [ih][i].QTotTran5J = [ih][i - 1].QTotTran5J;
+						}
+                                                [ih][0].fixed = 1;
+					}
+                                        [ih][0].PDrCotVal = (pl);
+                                        [ih][0].QTotTran5J = (tvol);
+				}
+			}
+			{
+				var len = [ih].length - 1;
+				var j = 0;
+				var Close = [];
+				Close.lenght = len + 1;
+				var EMA10 = [];
+				EMA10.lenght = len - period1;
+				var EMA20 = [];
+				EMA20.lenght = len - period2;
+				var EMA12 = [];
+				EMA12.lenght = len - period1;
+				var EMA22 = [];
+				EMA22.lenght = len - period2;
+				var EMA13 = [];
+				EMA13.lenght = len - period1;
+				var EMA23 = [];
+				EMA23.lenght = len - period2;
+				var TEMA1 = [];
+				TEMA1.lenght = len - period1;
+				var TEMA2 = [];
+				TEMA2.lenght = len - period1;
+			}
+			{
+				for (var i = 0; i <= len + j; i++)
+				{
+					if ([ih][i].QTotTran5J > 0)
+					{
+						Close[i - j] = [ih][i].PDrCotVal;
+					}
+					else
+					{
+						j += 1
+					};
+				}
+			}
+			{
+				var gainSum = 0;
+				var abss = 0;
+				for (var i = len - 1; i >= len - period1; i--)
+				{
+					gainSum += Close[i];
+				}
+				EMA10[len - period1] = (gainSum / period1);
+				EMA12[len - period1] = (gainSum / period1);
+				EMA13[len - period1] = (gainSum / period1);
+				for (var i = len - period1 - 1; i >= 0; i--)
+				{
+					EMA10[i] = EMA10[i + 1] + alfa1 * (Close[i] - EMA10[i + 1]);
+					EMA12[i] = EMA12[i + 1] + alfa1 * (EMA10[i] - EMA12[i + 1]);
+					EMA13[i] = EMA13[i + 1] + alfa1 * (EMA12[i] - EMA13[i + 1]);
+					TEMA1[i] = (3 * EMA10[i]) - (3 * EMA12[i]) + EMA13[i]
+				}
+			}
+			{
+				var gainSum = 0;
+				var abss = 0;
+				for (var i = len - 1; i >= len - period2; i--)
+				{
+					gainSum += Close[i];
+				}
+				EMA20[len - period2] = (gainSum / period2);
+				EMA22[len - period2] = (gainSum / period2);
+				EMA23[len - period2] = (gainSum / period2);
+				for (var i = len - period2 - 1; i >= 0; i--)
+				{
+					EMA20[i] = EMA20[i + 1] + alfa2 * (Close[i] - EMA20[i + 1]);
+					EMA22[i] = EMA22[i + 1] + alfa2 * (EMA20[i] - EMA22[i + 1]);
+					EMA23[i] = EMA23[i + 1] + alfa2 * (EMA22[i] - EMA23[i + 1]);
+					TEMA2[i] = (3 * EMA20[i]) - (3 * EMA22[i]) + EMA23[i]
+				}
+			}
+			{
+				var TEMA2R = ""
+				if (TEMA2[0] > TEMA2[1])
+				{
+					TEMA2R = "🔺"
+					Weightscore += 1
+					Trendscore += 1
+				}
+				else if (TEMA2[0] < TEMA2[1])
+				{
+					TEMA2R = "🔻"
+				}
+				else
+				{
+					TEMA2R = " ↔️"
+				}
+			}
+			{
+				var TEMA1R = ""
+				if (TEMA1[0] > TEMA1[1])
+				{
+					TEMA1R = "🔺"
+				}
+				else if (TEMA1[0] < TEMA1[1])
+				{
+					TEMA1R = "🔻"
+				}
+				else
+				{
+					TEMA1R = " ↔️"
+				}
+			}
+		}
+		//---------------------------------------------
+		{
+			var TEMADEMACR = ""
+			if (DEMA1[0] < TEMA2[0])
+			{
+				TEMADEMACR = "➕"
+				Weightscore += 2
+			}
+			else if (DEMA1[0] > TEMA2[0])
+			{
+				TEMADEMACR = "➖"
+				Weightscore -= 2
+			}
+			else
+			{
+				TEMADEMACR = "↔️"
+			}
+		}
+		//*******************************************EMA*******************************************
+		function EMA(period)
+		{
+			let ema_array = [];
+			let len = [ih].length - 1;
+			let multiplier = 2 / (1 + period);
+			if (len <= period + 5) return;
+			let sum = 0;
+			for (let i = len; i > len - period; i--)
+			{
+				let hlc3 = ([ih][i].PriceMax + [ih][i].PriceMin + [ih][i].PDrCotVal) / 3;
+				sum += hlc3;
+			}
+			let j = len - period + 1;
+			let temp = Math.round(sum / period * 10) / 10;
+			ema_array.unshift(temp);
+			j--;
+			while (j >= 0)
+			{
+				let hlc3 = ([ih][j].PriceMax + [ih][j].PriceMin + [ih][j].PDrCotVal) / 3;
+				temp = Math.round(10 * ((hlc3 - ema_array[0]) * multiplier + ema_array[0])) / 10;
+				ema_array.unshift(temp);
+				j--;
+			}
+			return ema_array;
+		}
+		let ema5 = EMA(5);
+		if (ema5[0] > ema5[1])
+		{
+			EMAR = "🔺"
+			Trendscore += 1
+			Weightscore += 2
+		}
+		else if (ema5[0] < ema5[1])
+		{
+			EMAR = "🔻"
+			Trendscore -= 1
+			Weightscore -= 2
+		}
+		else
+		{
+			EMAR = " ↔️"
+		}
+		var EMARS = ""
+		if ((pl) > ema5[0])
+		{
+			EMARS = "➕"
+		}
+		else if ((pl) < ema5[0])
+		{
+			EMARS = "➖"
+		}
+		else
+		{
+			EMARS = " ↔️"
+		}
+		//*******************************************RSI*******************************************
+		var period = 14;
+		if ([ih][0].PClosing != (pc) && [ih][0].ZTotTran != (tno) && [ih][0].QTotCap != (tval))
+		{
+			var len = [ih].length;
+			if (typeof [ih][0].fixed == 'undefined')
+			{
+				for (var i = len; i > 0; i--)
+				{
+					if (typeof [ih][i] == 'undefined')
+					{
+                                                        [ih][i] = {};
+					}
+                                                [ih][i].PDrCotVal = [ih][i - 1].PDrCotVal;
+                                                [ih][i].QTotTran5J = [ih][i - 1].QTotTran5J;
+				}
+                                        [ih][0].fixed = 1;
+			}
+                                [ih][0].PDrCotVal = (pl);
+                                [ih][0].QTotTran5J = (tvol);
+		}
+		var len = [ih].length;
+		var i = 0
+		var j = 0
+		var dlen = 0
+		var sum = 0
+		for (i = 0; i < len; i++)
+		{
+			if ([ih][i].QTotTran5J > 0)
+			{
+				j++
+			}
+			else
+			{}
+		}
+		dlen = j;
+		var Close = [];
+		Close.lenght = dlen;
+		var Gain = [];
+		Gain.lenght = dlen;
+		var Loss = [];
+		Loss.lenght = dlen;
+		var AvgGain = [];
+		AvgGain.lenght = dlen;
+		var AvgLoss = [];
+		AvgLoss.lenght = dlen;
+		var RS = [];
+		RS.lenght = dlen;
+		var RSI = [];
+		RSI.lenght = dlen;
+		j = dlen + 1;
+		for (i = 0; i < len; i++)
+		{
+			if ([ih][i].QTotTran5J > 0)
+			{
+				j--
+				Close[j] = [ih][i].PDrCotVal;
+			}
+			else
+			{}
+		}
+		for (var i = dlen; i > 1; i--)
+		{
+			if (Close[i] >= Close[i - 1])
+			{
+				Gain[i] = Close[i] - Close[i - 1];
+				Loss[i] = 0
+			}
+			else
+			{
+				Loss[i] = Close[i - 1] - Close[i];
+				Gain[i] = 0
+			}
+		}
+		var SGain = 0;
+		var SLoss = 0;
+		for (var i = 2; i <= period + 1; i++)
+		{
+			SGain += Gain[i];
+			SLoss += Loss[i];
+		}
+		AvgGain[period + 1] = SGain / period;
+		AvgLoss[period + 1] = SLoss / period;
+		for (i = period + 2; i <= dlen; i++)
+		{
+			AvgGain[i] = ((period - 1) * AvgGain[i - 1] + Gain[i]) / period;
+			AvgLoss[i] = ((period - 1) * AvgLoss[i - 1] + Loss[i]) / period;
+		}
+		for (i = period + 1; i <= dlen; i++)
+		{
+			RS[i] = AvgGain[i] / AvgLoss[i];
+		}
+		for (i = period + 1; i <= dlen; i++)
+		{
+			if (AvgLoss[i] == 0)
+			{
+				RSI[i] = 100
+			}
+			else
+			{
+				RSI[i] = 100 - (100 / (1 + RS[i]))
+			}
+		}
+		RSITIME = RSI[dlen].toFixed(2);
+		RSIPAST = RSI[dlen - 1].toFixed(2);
+		RSI5 = (RSI[dlen] + RSI[dlen - 1] + RSI[dlen - 2] + RSI[dlen - 3] + RSI[dlen - 4]) / 5
+		RSI14 = (RSI[dlen] + RSI[dlen - 1] + RSI[dlen - 2] + RSI[dlen - 3] + RSI[dlen - 4] + RSI[dlen - 5] + RSI[dlen - 6] + RSI[dlen - 7] + RSI[dlen - 8] + RSI[dlen - 9] + RSI[dlen - 10] + RSI[dlen - 11] + RSI[dlen - 12] + RSI[dlen - 13]) / 14
+		if (RSITIME > RSIPAST)
+		{
+			Ravand_RSI = "🔺";
+			Trendscore += 1
+			Weightscore += 2
+		}
+		else if (RSITIME < RSIPAST)
+		{
+			Ravand_RSI = "🔻";
+			Trendscore -= 1
+			Weightscore -= 2
+		}
+		else
+		{
+			Ravand_RSI = " ↔️";
+		}
+		if (RSITIME > 50)
+		{
+			Weightscore += 3
+			star += "⭐";
+			starplus1 += 1
+		}
+		else if (RSITIME < 50)
+		{
+			Weightscore -= 3
+		}
+		//*******************************************MFI*******************************************
+		function MFI(start, day)
+		{
+			var len = [ih].length;
+			for (var i = 0; i < len; i++)
+			{
+                                [ih][i].TypicalPrice = ([ih][i].PriceMin + [ih][i].PriceMax + [ih][i].PDrCotVal) / 3;
+			}
+			for (var i = 0; i < len - 1; i++)
+			{
+				if ([ih][i].TypicalPrice > [ih][i + 1].TypicalPrice)
+				{
+                                        [ih][i].UpDown = 1;
+                                        [ih][i].PosMoneyFlow = [ih][i].QTotTran5J * [ih][i].TypicalPrice;
+                                        [ih][i].NegMoneyFlow = 0;
+				}
+				else
+				{
+                                        [ih][i].UpDown = -1;
+                                        [ih][i].PosMoneyFlow = 0;
+                                        [ih][i].NegMoneyFlow = [ih][i].QTotTran5J * [ih][i].TypicalPrice;
+				}
+			}
+			var SumPos = 0;
+			var SumNeg = 0;
+			for (var i = start; i < start + day; i++)
+			{
+				SumPos += [ih][i].PosMoneyFlow;
+				SumNeg += [ih][i].NegMoneyFlow;
+			}
+			if (SumNeg == 0)
+			{
+				var MFI = 100;
+			}
+			else
+			{
+				var MF = SumPos / SumNeg;
+				var MFI = 100 - (100 / (1 + MF));
+			}
+			return MFI;
+		}
+		MFI5 = (MFI(0, 14) + MFI(1, 14) + MFI(2, 14) + MFI(3, 14) + MFI(4, 14)) / 5
+		MFI14 = (MFI(0, 14) + MFI(1, 14) + MFI(2, 14) + MFI(3, 14) + MFI(4, 14) + MFI(5, 14) + MFI(6, 14) + MFI(7, 14) + MFI(8, 14) + MFI(9, 14) + MFI(10, 14) + MFI(11, 14) + MFI(12, 14) + MFI(13, 14)) / 14
+		if (MFI(0, 14) > MFI(1, 14))
+		{
+			Ravand_MFI = "🔺";
+			Trendscore += 1
+			Weightscore += 1
+		}
+		else if (MFI(0, 14) < MFI(1, 14))
+		{
+			Ravand_MFI = "🔻";
+			Trendscore -= 1
+			Weightscore -= 1
+		}
+		else
+		{
+			Ravand_MFI = " ↔️";
+		}
+		if (MFI(0, 14) > 50)
+		{
+			Weightscore += 3
+			star += "⭐️"
+			starplus1 += 1
+		}
+		else if (MFI(0, 14) < 50)
+		{
+			Weightscore -= 3
+		}
+		//---------------------------------------------
+		var Analiz1 = ""
+		if (RSITIME > RSIPAST && MFI(0, 14) > MFI(1, 14))
+		{
+			Analiz1 = "هماهنگی بین صعود قیمتی و قدرت خریداران"
+		}
+		else if (RSITIME < RSIPAST && MFI(0, 14) < MFI(1, 14))
+		{
+			Analiz1 = "هماهنگی بین نزول قیمتی و قدرت فروشندگان"
+		}
+		else
+		{
+			Analiz1 = ""
+		}
+		var Analiz2 = ""
+		if (RSITIME > RSIPAST && MFI(0, 14) < MFI(1, 14))
+		{
+			Analiz2 = "بر خلاف صعود قیمتی قدرت در کنترل فروشندگان"
+		}
+		else if (RSITIME < RSIPAST && MFI(0, 14) > MFI(1, 14))
+		{
+			Analiz2 = "برخلاف نزول قیمتی قدرت در کنترل خریداران"
+		}
+		else
+		{
+			Analiz2 = ""
+		}
+		//---------------------------------------------
+		var Analiz5 = ""
+		if (RSITIME > RSI5 && MFI(0, 14) > MFI5)
+		{
+			Analiz5 = "هماهنگی بین صعود قیمتی و قدرت خریداران"
+		}
+		else if (RSITIME < RSI5 && MFI(0, 14) < MFI5)
+		{
+			Analiz5 = "هماهنگی بین نزول قیمتی و قدرت فروشندگان"
+		}
+		else
+		{
+			Analiz5 = ""
+		}
+		var Analiz6 = ""
+		if (RSITIME > RSI5 && MFI(0, 14) < MFI5)
+		{
+			Analiz6 = "بر خلاف صعود قیمتی قدرت در کنترل فروشندگان"
+		}
+		else if (RSITIME < RSI5 && MFI(0, 14) > MFI5)
+		{
+			Analiz6 = "برخلاف نزول قیمتی قدرت در کنترل خریداران"
+		}
+		else
+		{
+			Analiz6 = ""
+		}
+		//---------------------------------------------
+		var Analiz7 = ""
+		if (RSITIME > RSI14 && MFI(0, 14) > MFI14)
+		{
+			Analiz7 = "هماهنگی بین صعود قیمتی و قدرت خریداران"
+		}
+		else if (RSITIME < RSI14 && MFI(0, 14) < MFI14)
+		{
+			Analiz7 = "هماهنگی بین نزول قیمتی و قدرت فروشندگان"
+		}
+		else
+		{
+			Analiz7 = ""
+		}
+		var Analiz8 = ""
+		if (RSITIME > RSI14 && MFI(0, 14) < MFI14)
+		{
+			Analiz8 = "بر خلاف صعود قیمتی قدرت در کنترل فروشندگان"
+		}
+		else if (RSITIME < RSI14 && MFI(0, 14) > MFI14)
+		{
+			Analiz8 = "برخلاف نزول قیمتی قدرت در کنترل خریداران"
+		}
+		else
+		{
+			Analiz8 = ""
+		}
+		//*******************************************CCI*******************************************
+		var per = 20
+		var cmin = -100
+		//-----------------
+		var zr = 0.015
+		var xb = 0
+		var yb = 0
+		var dle = 0
+		var tm = 0
+		var cm = 0
+		var cn = 0
+		var dlen = [ih].length
+		for (xb = 0; xb < dlen; xb++)
+		{
+			if ([ih][xb].QTotTran5J > 0)
+			{
+				yb++
+			}
+			else
+			{}
+		}
+		dle = yb
+		var open = [];
+		open.length = dle
+		var pmax = [];
+		pmax.length = dle
+		var pmin = [];
+		pmin.length = dle
+		var clos = [];
+		clos.length = dle
+		var typ = [];
+		typ.length = dle
+		var sma = [];
+		sma.length = dle
+		var md = [];
+		md.length = dle
+		var cci = [];
+		cci.length = dle
+		if ((pl) == [ih][0].PDrCotVal)
+		{
+			yb = dle + 1
+		}
+		else
+		{
+			yb = dle
+			open[dle] = (pf)
+			pmax[dle] = (pmax)
+			pmin[dle] = (pmin)
+			clos[dle] = (pl)
+		}
+		for (xb = 0; xb < dlen; xb++)
+		{
+			if ([ih][xb].QTotTran5J > 0)
+			{
+				yb--
+				open[yb] = [ih][xb].PriceFirst
+				pmax[yb] = [ih][xb].PriceMax
+				pmin[yb] = [ih][xb].PriceMin
+				clos[yb] = [ih][xb].PDrCotVal
+			}
+			else
+			{}
+		}
+		for (xb = 1; xb <= dle; xb++)
+		{
+			typ[xb] = (pmax[xb] + pmin[xb] + clos[xb]) / 3
+		}
+		for (xb = per; xb <= dle; xb++)
+		{
+			tm = 0
+			for (yb = (xb - per + 1); yb <= xb; yb++)
+			{
+				tm += typ[yb]
+			}
+			sma[xb] = tm / per
+		}
+		for (xb = per; xb <= dle; xb++)
+		{
+			tm = 0
+			for (yb = (xb - per + 1); yb <= xb; yb++)
+			{
+				tm += Math.abs(sma[xb] - typ[yb])
+			}
+			md[xb] = tm / per
+		}
+		cm = -10000000
+		cn = 10000000
+		for (xb = per; xb <= dle; xb++)
+		{
+			cci[xb] = (typ[xb] - sma[xb]) / (zr * md[xb])
+			if (cci[xb] > cm)
+			{
+				cm = cci[xb]
+			}
+			if (cci[xb] < cn)
+			{
+				cn = cci[xb]
+			}
+		}
+		var CCI1 = Math.round(cci[dle] * 100) / 100
+		var CCIR = ""
+		if (cci[dle] > cci[dle - 1])
+		{
+			CCIR = "🔺"
+			Trendscore += 1
+			Weightscore += 1
+		}
+		else if (cci[dle] < cci[dle - 1])
+		{
+			CCIR = "🔻"
+			Trendscore -= 1
+			Weightscore -= 1
+		}
+		else
+		{
+			CCIR = " ↔️"
+		}
+		if (cci[dle] > 0)
+		{
+			Weightscore += 2
+		}
+		else if (cci[dle] < 0)
+		{
+			Weightscore -= 2
+		}
+		//*******************************************Chande Momentum Oscillator*******************************************
+		function CHNM(day, period)
+		{
+			var g = l = j = 0;
+			str = ' ';
+			var len = period;
+			for (var i = day; i < day + len; i++)
+			{
+				var rec = [ih][i]
+				var change = rec.PDrCotVal - [ih][i + 1].PDrCotVal;
+				if (change > 0)
+				{
+					rec.gain = change;
+					rec.loss = 0;
+					g += 1;
+				}
+				else
+				{
+					rec.gain = 0;
+					rec.loss = change;
+					l += 1;
+				}
+			}
+			var gainSum = 0;
+			var lossSum = 0;
+			for (var i = day; i < day + len; i++)
+			{
+				var rec = [ih][i];
+				if (rec.QTotTran5J > 0 && (tno) > 0)
+				{
+					gainSum += rec.gain;
+					lossSum += rec.loss;
+					j += 1;
+				}
+			}
+			var aGain = gainSum / j;
+			var aLoss = lossSum / j;
+			var Mom = Math.round(((aGain + aLoss) / (aGain - aLoss)) * 10000) / 100;
+			return Mom;
+		}
+		if (CHNM(0, 9) > CHNM(1, 9))
+		{
+			MomR = "🔺"
+			Trendscore += 1
+			Weightscore += 1
+		}
+		else if (CHNM(0, 9) < CHNM(1, 9))
+		{
+			MomR = "🔻"
+			Trendscore -= 1
+			Weightscore -= 1
+		}
+		else
+		{
+			MomR = " ↔️"
+		}
+		if (CHNM(0, 9) > 0)
+		{
+			Weightscore += 2
+		}
+		else if (CHNM(0, 9) < 0)
+		{
+			Weightscore -= 2
+		}
+		//*******************************************محاسبه ويليامز*******************************************
+		var Williams = function(len, day)
+		{
+			var maxWi = [ih][day].PriceMax;
+			var minWi = [ih][day].PriceMin;
+			for (var i = day; i < len + day; i++)
+			{
+				if (maxWi < [ih][i].PriceMax) maxWi = [ih][i].PriceMax;
+			}
+			for (var i = day; i < len + day; i++)
+			{
+				if (minWi > [ih][i].PriceMin) minWi = [ih][i].PriceMin;
+			}
+			RWi = ((maxWi - [ih][day].PDrCotVal) / (maxWi - minWi) * -100);
+			return RWi;
+		}
+		if (Williams(14, 0) > Williams(14, 1))
+		{
+			WilliamsR1 = "🔺"
+			Trendscore += 1
+			Weightscore += 1
+		}
+		else if (Williams(14, 0) < Williams(14, 1))
+		{
+			WilliamsR1 = "🔻"
+			Trendscore -= 1
+			Weightscore -= 1
+		}
+		else
+		{
+			WilliamsR1 = " ↔️"
+		}
+		if (Williams(14, 0) > -40)
+		{
+			Weightscore += 2;
+		}
+		else if (Williams(14, 0) < -40)
+		{
+			Weightscore -= 2;
+		}
+		//*******************************************AO*******************************************
+		var period1 = 5
+		var period2 = 34
+		var dlen = [ih].length
+		var xb = 0
+		var yb = 0
+		var dle = 0
+		var sum = 0
+		for (xb = 0; xb < dlen; xb++)
+		{
+			if ([ih][xb].QTotTran5J > 0)
+			{
+				yb++
+			}
+			else
+			{}
+		}
+		dle = yb
+		var sma1 = [];
+		sma1.length = dle
+		var sma2 = [];
+		sma2.length = dle
+		var mx = [];
+		mx.length = dle
+		var mn = [];
+		mn.length = dle
+		var mid = [];
+		mid.length = dle
+		var ao = [];
+		ao.length = dle
+		yb = dle + 1
+		for (xb = 0; xb < dlen; xb++)
+		{
+			if ([ih][xb].QTotTran5J > 0)
+			{
+				yb--
+				mx[yb] = [ih][xb].PriceMax
+				mn[yb] = [ih][xb].PriceMin
+				mid[yb] = (mx[yb] + mn[yb]) / 2
+			}
+			else
+			{}
+		}
+		for (xb = period1; xb <= dle; xb++)
+		{
+			sum = 0
+			for (yb = (xb - period1 + 1); yb <= xb; yb++)
+			{
+				sum += mid[yb]
+			}
+			sma1[xb] = sum / period1
+			sma1[xb] = Math.round(sma1[xb] * 100) / 100
+		}
+		for (xb = period2; xb <= dle; xb++)
+		{
+			sum = 0
+			for (yb = (xb - period2 + 1); yb <= xb; yb++)
+			{
+				sum += mid[yb]
+			}
+			sma2[xb] = sum / period2
+			sma2[xb] = Math.round(sma2[xb] * 100) / 100
+			ao[xb] = sma1[xb] - sma2[xb]
+			ao[xb] = Math.round(ao[xb] * 100) / 100
+		}
+		if (ao[dle] > ao[dle - 1])
+		{
+			Rawesomeoscillator = "🔺"
+			Trendscore += 1
+			Weightscore += 1
+		}
+		else if (ao[dle] < ao[dle - 1])
+		{
+			Rawesomeoscillator = "🔻"
+			Trendscore -= 1
+			Weightscore -= 1
+		}
+		else
+		{
+			Rawesomeoscillator = " ↔️"
+		}
+		if (ao[dle] > 0)
+		{
+			Weightscore += 4
+			star += "⭐️"
+			starplus1 += 1
+		}
+		else if (ao[dle] < 0)
+		{
+			Weightscore -= 4
+		}
+		//*******************************************Stochastic*******************************************
+		var period1 = 14; //Length: default = 14
+		var period2 = 3; //Length: default = 3
+		//شیفت داده‌ها
+		if ([ih][0].PClosing != (pc) && [ih][0].ZTotTran != (tno) && [ih][0].QTotCap != (tval))
+		{
+			var len = [ih].length;
+			if (typeof [ih][0].fixed == 'undefined')
+			{
+				for (var i = len; i > 0; i--)
+				{
+					if (typeof [ih][i] == 'undefined')
+					{
+                                                        [ih][i] = {};
+					}
+                                                [ih][i].QTotTran5J = [ih][i - 1].QTotTran5J;
+                                                [ih][i].PDrCotVal = [ih][i - 1].PDrCotVal;
+                                                [ih][i].PriceMin = [ih][i - 1].PriceMin;
+                                                [ih][i].PriceMax = [ih][i - 1].PriceMax;
+				}
+                                        [ih][0].fixed = 1;
+			}
+                                [ih][0].QTotTran5J = (tvol);
+                                [ih][0].PDrCotVal = (pl);
+                                [ih][0].PriceMin = (pmin);
+                                [ih][0].PriceMax = (pmax);
+		}
+		var len = [ih].length;
+		var i = 0;
+		var j = 0;
+		var dlen = 0;
+		var sumK = 0;
+		var HH
+		var LL
+		for (i = 0; i < len; i++)
+		{
+			if ([ih][i].QTotTran5J > 0)
+			{
+				j++
+			}
+			else
+			{}
+		}
+		dlen = j;
+		var PMax = [];
+		PMax.lenght = dlen
+		var PMin = [];
+		PMin.lenght = dlen
+		var Close = [];
+		Close.lenght = dlen
+		var Ks = [];
+		Ks.lenght = dlen
+		var Ds = [];
+		Ds.lenght = dlen
+		var i = 0;
+		var j = 0;
+		j = dlen + 1;
+		for (i = 0; i < len; i++)
+		{
+			if ([ih][i].QTotTran5J > 0)
+			{
+				j--;
+				PMax[j] = [ih][i].PriceMax;
+				PMin[j] = [ih][i].PriceMin;
+				Close[j] = [ih][i].PDrCotVal;
+			}
+			else
+			{}
+		}
+		for (i = period1; i <= dlen; i++)
+		{
+			HH = 0;
+			LL = 1000000
+			for (j = (i - period1 + 1); j <= i; j++)
+			{
+				if (PMax[j] > HH)
+				{
+					HH = PMax[j]
+				}
+				else
+				{}
+				if (PMin[j] < LL)
+				{
+					LL = PMin[j]
+				}
+				else
+				{}
+			}
+			Ks[i] = ((Close[i] - LL) / (HH - LL)) * 100;
+		}
+		for (i = dlen; i >= period1; i--)
+		{
+			sumK = 0;
+			for (j = i; j >= (i - period2 + 1); j--)
+			{
+				sumK += Ks[j]
+			}
+			Ds[i] = sumK / period2;
+		}
+		var StoR1 = ""
+		if (Ks[dlen] > Ks[dlen - 1])
+		{
+			StoR1 = "🔺"
+			Weightscore += 1
+			Trendscore += 1
+		}
+		else if (Ks[dlen] < Ks[dlen - 1])
+		{
+			StoR1 = "🔻"
+			Weightscore -= 1
+			Trendscore -= 1
+		}
+		else
+		{
+			StoR1 = " ↔️"
+		}
+		var StoR2 = ""
+		if (Ds[dlen] > Ds[dlen - 1])
+		{
+			StoR2 = "🔺"
+			Weightscore += 1
+			Trendscore += 1
+		}
+		else if (Ds[dlen] < Ds[dlen - 1])
+		{
+			StoR2 = "🔻"
+			Weightscore -= 1
+			Trendscore -= 1
+		}
+		else
+		{
+			StoR2 = " ↔️"
+		}
+		var StoC = ""
+		if (Ks[dlen] > Ds[dlen])
+		{
+			StoC = "➕"
+			Trendscore += 1
+			Weightscore += 2
+		}
+		else if (Ks[dlen] < Ds[dlen])
+		{
+			StoC = "➖"
+			Trendscore -= 1
+			Weightscore -= 2
+		}
+		else
+		{
+			StoC = " ↔️"
+		}
+		//*******************************************Aroon******************************************
+		var Aroon_Up = [];
+		var Aroon_Down = [];
+		for (var i = 0; i < 15; i++)
+		{
+			var Aroonhf = [];
+			var Aroonlf = [];
+			for (var j = i; j < i + 15; j++)
+			{
+				if ([ih][j].PriceMax != 0)
+				{
+					Aroonhf.push([ih][j].PriceMax);
+				}
+				if ([ih][j].PriceMin != 0)
+				{
+					Aroonlf.push([ih][j].PriceMin);
+				}
+			}
+			var Aroonmax = Math.max(...Aroonhf);
+			var l_high = Aroonhf.indexOf(Aroonmax);
+			Aroon_Up[i] = ((14 - l_high) / 14) * 100;
+			var Aroonmin = Math.min(...Aroonlf);
+			var l_low = Aroonlf.indexOf(Aroonmin);
+			Aroon_Down[i] = ((14 - l_low) / 14) * 100;
+		}
+		{
+			var AroonR1 = ""
+			if (Aroon_Up[0] > Aroon_Up[1])
+			{
+				AroonR1 = "🔺"
+			}
+			else if (Aroon_Up[0] < Aroon_Up[1])
+			{
+				AroonR1 = "🔻"
+			}
+			else
+			{
+				AroonR1 = " ↔️"
+			}
+		}
+		{
+			var AroonR2 = ""
+			if (Aroon_Down[0] > Aroon_Down[1])
+			{
+				AroonR2 = "🔺"
+			}
+			else if (Aroon_Down[0] < Aroon_Down[1])
+			{
+				AroonR2 = "🔻"
+			}
+			else
+			{
+				AroonR2 = " ↔️"
+			}
+		}
+		{
+			var AroonC = ""
+			if (Aroon_Up[0] > Aroon_Down[0])
+			{
+				AroonC = "➕"
+				Trendscore += 1
+				Weightscore += 3
+			}
+			else if (Aroon_Up[0] < Aroon_Down[0])
+			{
+				AroonC = "➖"
+				Trendscore -= 1
+				Weightscore -= 3
+			}
+			else
+			{
+				AroonC = " ↔️"
+			}
+		}
+		var Aroon1 = Aroon_Up[0]
+		var Aroon2 = Aroon_Down[0]
+		//*******************************************ADX*******************************************
+		function ADX(day)
+		{
+			var len = [ih].length;
+			for (var i = 0; i < len - 1; i++)
+			{
+				var val1 = [ih][i].PriceMax - [ih][i].PriceMin;
+				var val2 = Math.abs([ih][i].PriceMax - [ih][i + 1].PDrCotVal);
+				var val3 = Math.abs([ih][i].PriceMin - [ih][i + 1].PDrCotVal);
+                                [ih][i].TR = Math.max(val1, val2, val3);
+				if ([ih][i].PriceMax - [ih][i + 1].PriceMax > [ih][i + 1].PriceMin - [ih][i].PriceMin)
+				{
+                                        [ih][i].DM1_Plus = Math.max([ih][i].PriceMax - [ih][i + 1].PriceMax, 0);
+				}
+				else
+				{
+                                        [ih][i].DM1_Plus = 0;
+				}
+				if ([ih][i + 1].PriceMin - [ih][i].PriceMin > [ih][i].PriceMax - [ih][i + 1].PriceMax)
+				{
+                                        [ih][i].DM1_Minus = Math.max([ih][i + 1].PriceMin - [ih][i].PriceMin, 0);
+				}
+				else
+				{
+                                        [ih][i].DM1_Minus = 0;
+				}
+			}
+			var SumTR = 0;
+			var SumDMPlus = 0;
+			var SumDMMinus = 0;
+			for (var i = len - 2; i >= len - day - 1; i--)
+			{
+				SumTR += [ih][i].TR;
+				SumDMPlus += [ih][i].DM1_Plus;
+				SumDMMinus += [ih][i].DM1_Minus;
+			}
+			for (var i = len - day - 1; i >= 0; i--)
+			{
+				if (i == len - day - 1)
+				{
+                                        [ih][i].ATR = SumTR;
+                                        [ih][i].ADM_Plus = SumDMPlus;
+                                        [ih][i].ADM_Minus = SumDMMinus;
+				}
+				else
+				{
+                                        [ih][i].ATR = [ih][i + 1].ATR - ([ih][i + 1].ATR / day) + [ih][i].TR;
+                                        [ih][i].ADM_Plus = [ih][i + 1].ADM_Plus - ([ih][i + 1].ADM_Plus / day) + [ih][i].DM1_Plus;
+                                        [ih][i].ADM_Minus = [ih][i + 1].ADM_Minus - ([ih][i + 1].ADM_Minus / day) + [ih][i].DM1_Minus;
+				}
+                                [ih][i].DI_Plus = 100 * ([ih][i].ADM_Plus / [ih][i].ATR);
+                                [ih][i].DI_Minus = 100 * ([ih][i].ADM_Minus / [ih][i].ATR);
+                                [ih][i].DI_Diff = Math.abs([ih][i].DI_Plus - [ih][i].DI_Minus);
+                                [ih][i].DI_Sum = [ih][i].DI_Plus + [ih][i].DI_Minus;
+                                [ih][i].DX = 100 * ([ih][i].DI_Diff / [ih][i].DI_Sum);
+			}
+			var SumDX = 0;
+			for (var i = len - day - 1; i >= len - (day * 2); i--)
+			{
+				SumDX += [ih][i].DX;
+			}
+			var FirstADX = SumDX / day;
+			for (var i = len - (day * 2); i >= 0; i--)
+			{
+				if (i == len - (day * 2))
+				{
+                                        [ih][i].ADX = FirstADX;
+				}
+				else
+				{
+                                        [ih][i].ADX = (([ih][i + 1].ADX * (day - 1)) + [ih][i].DX) / day;
+				}
+			}
+		}
+		ADX(14);
+		ADX1 = parseFloat([ih][0].ADX.toFixed(2));
+		ADX2 = parseFloat([ih][0].DI_Plus.toFixed(2));
+		ADX3 = parseFloat([ih][0].DI_Minus.toFixed(2));
+		var WeightscoreADX = 0
+		var ADX2R = ""
+		if (parseFloat([ih][0].DI_Plus.toFixed(2)) > parseFloat([ih][1].DI_Plus.toFixed(2)))
+		{
+			ADX2R = "🔺"
+			WeightscoreADX += 1
+		}
+		else if (parseFloat([ih][0].DI_Plus.toFixed(2)) < parseFloat([ih][1].DI_Plus.toFixed(2)))
+		{
+			ADX2R = "🔻"
+			WeightscoreADX -= 1
+		}
+		else
+		{
+			ADX2R = " ↔️"
+		}
+		var ADX3R = ""
+		if (parseFloat([ih][0].DI_Minus.toFixed(2)) > parseFloat([ih][1].DI_Minus.toFixed(2)))
+		{
+			ADX3R = "🔺"
+			WeightscoreADX -= 1
+		}
+		else if (parseFloat([ih][0].DI_Minus.toFixed(2)) < parseFloat([ih][1].DI_Minus.toFixed(2)))
+		{
+			ADX3R = "🔻"
+			WeightscoreADX += 1
+		}
+		else
+		{
+			ADX3R = " ↔️"
+		}
+		var ADX5R = ""
+		if (parseFloat([ih][0].DI_Plus.toFixed(2)) > parseFloat([ih][0].DI_Minus.toFixed(2)))
+		{
+			ADX5R = "⤴️"
+			Trendscore += 1
+			WeightscoreADX += 2
+		}
+		else if (parseFloat([ih][0].DI_Plus.toFixed(2)) < parseFloat([ih][0].DI_Minus.toFixed(2)))
+		{
+			ADX5R = "⤵️"
+			Trendscore -= 1
+			WeightscoreADX -= 2
+		}
+		else
+		{
+			ADX5R = "↔️"
+		}
+		var HamrastaADX1 = (parseFloat([ih][0].ADX.toFixed(2)) - parseFloat([ih][0].DI_Plus.toFixed(2)))
+		var HamrastaADX2 = (parseFloat([ih][0].ADX.toFixed(2)) - parseFloat([ih][0].DI_Minus.toFixed(2)))
+		var HADX1 = ""
+		var HADX2 = ""
+		if (HamrastaADX1 < 0)
+		{
+			HADX1 = (HamrastaADX1) * -1
+		}
+		else
+		{
+			HADX1 = HamrastaADX1
+		}
+		if (HamrastaADX2 < 0)
+		{
+			HADX2 = (HamrastaADX2) * -1
+		}
+		else
+		{
+			HADX2 = HamrastaADX2
+		}
+		if (HADX1 < HADX2)
+		{
+			HamrastaADXR1 = "✔️"
+			WeightscoreADX += 2
+		}
+		else if (HADX1 > HADX2)
+		{
+			HamrastaADXR1 = ""
+		}
+		var HamrastaADX3 = (parseFloat([ih][0].ADX.toFixed(2)) - parseFloat([ih][0].DI_Plus.toFixed(2)))
+		var HamrastaADX4 = (parseFloat([ih][0].ADX.toFixed(2)) - parseFloat([ih][0].DI_Minus.toFixed(2)))
+		var HADX3 = ""
+		var HADX4 = ""
+		if (HamrastaADX3 < 0)
+		{
+			HADX3 = (HamrastaADX3) * -1
+		}
+		else
+		{
+			HADX3 = HamrastaADX3
+		}
+		if (HamrastaADX4 < 0)
+		{
+			HADX4 = (HamrastaADX4) * -1
+		}
+		else
+		{
+			HADX4 = HamrastaADX4
+		}
+		if (HADX3 > HADX4)
+		{
+			HamrastaADXR2 = "✔️"
+			WeightscoreADX -= 2
+		}
+		else if (HADX3 < HADX4)
+		{
+			HamrastaADXR2 = ""
+		}
+		var ADX4R = ""
+		if ([ih][0].ADX > 25)
+		{
+			ADX4R = " ➕"
+			if (HADX1 < HADX2)
+			{
+				WeightscoreADX += 1
+			}
+			else if (HADX3 > HADX4)
+			{
+				WeightscoreADX -= 1
+			}
+		}
+		else if ([ih][0].ADX < 25)
+		{
+			ADX4R = " ➖"
+			if (HADX1 < HADX2)
+			{
+				WeightscoreADX -= 1
+			}
+			else if (HADX3 > HADX4)
+			{
+				WeightscoreADX += 1
+			}
+		}
+		else
+		{
+			ADX4R = " ↔️"
+		}
+		var ADX1R = ""
+		if (parseFloat([ih][0].ADX.toFixed(2)) > parseFloat([ih][1].ADX.toFixed(2)))
+		{
+			ADX1R = "🔺"
+			if (HADX1 < HADX2)
+			{
+				WeightscoreADX += 1
+			}
+			else if (HADX3 > HADX4)
+			{
+				WeightscoreADX -= 1
+			}
+		}
+		else if (parseFloat([ih][0].ADX.toFixed(2)) < parseFloat([ih][1].ADX.toFixed(2)))
+		{
+			ADX1R = "🔻"
+			if (HADX1 < HADX2)
+			{
+				WeightscoreADX -= 1
+			}
+			else if (HADX3 > HADX4)
+			{
+				WeightscoreADX += 1
+			}
+		}
+		else
+		{
+			ADX1R = " ↔️"
+		}
+		if (parseFloat([ih][0].DI_Plus.toFixed(2)) > parseFloat([ih][0].DI_Minus.toFixed(2)) && ([ih][0].ADX > 25) && (HADX1 < HADX2) && (WeightscoreADX >= 4))
+		{
+			star += "⭐️"
+			starplus1 += 1
+		}
+		//*******************************************TSI*******************************************
+		{
+			var period1 = 25; //Long
+			var period2 = 13; //Short
+			var signal = 13; //Signal
+			var Alfal1 = 2 / (1 + period1)
+			var Alfal2 = 2 / (1 + period2)
+			var Alfal3 = 2 / (1 + signal)
+			var len = [ih].length;
+			var i = 0;
+			var j = 0;
+			var dlen = 0;
+			var PC = [];
+			PC.lenght = dlen;
+			var Close = [];
+			Close.lenght = dlen;
+			var Vol = [];
+			Vol.lenght = dlen;
+			var PCS = [];
+			PCS.lenght = dlen;
+			var APCS = [];
+			APCS.lenght = dlen;
+			var PCDS = [];
+			PCDS.lenght = dlen;
+			var APCDS = [];
+			APCDS.lenght = dlen;
+			var TSI = [];
+			TSI.lenght = dlen;
+			var SIG = [];
+			SIG.lenght = dlen;
+			for (i = 0; i < len; i++)
+			{
+				if ([ih][i].QTotTran5J > 0)
+				{
+					j++
+				}
+				else
+				{}
+			}
+			dlen = j;
+			j = dlen + 1;
+			for (i = 0; i < len; i++)
+			{
+				if ([ih][i].QTotTran5J > 0)
+				{
+					j--;
+					Close[j] = [ih][i].PDrCotVal;
+					Vol[j] = [ih][i].QTotTran5J;
+				}
+				else
+				{}
+			}
+			for (i = dlen; i > 0; i--)
+			{
+				PC[i] = Close[i] - Close[i - 1];
+			}
+			var gainSum = 0;
+			var abss = 0;
+			for (i = 2; i <= period1 + 1; i++)
+			{
+				gainSum += PC[i];
+				abss += Math.abs(PC[i]);
+			}
+			PCS[period1 + 1] = (gainSum / period1);
+			APCS[period1 + 1] = (abss / period1);
+			for (var i = period1 + 2; i <= dlen; i++)
+			{
+				PCS[i] = PCS[i - 1] + Alfal1 * (PC[i] - PCS[i - 1]);
+				APCS[i] = APCS[i - 1] + Alfal1 * (Math.abs(PC[i]) - APCS[i - 1]);
+			}
+			gainSum = 0;
+			abss = 0;
+			for (i = period1 + 1; i <= period1 + period2; i++)
+			{
+				gainSum += PCS[i];
+				abss += Math.abs(APCS[i]);
+			}
+			PCDS[period1 + period2] = gainSum / period2;
+			APCDS[period1 + period2] = abss / period2;
+			TSI[period1 + period2] = (PCDS[period1 + period2]) / (APCDS[period1 + period2])
+			for (i = period1 + period2 + 1; i <= dlen; i++)
+			{
+				PCDS[i] = PCDS[i - 1] + Alfal2 * (PCS[i] - PCDS[i - 1])
+				APCDS[i] = APCDS[i - 1] + Alfal2 * (APCS[i] - APCDS[i - 1])
+				TSI[i] = (PCDS[i]) / (APCDS[i])
+			}
+			gainSum = 0;
+			abss = 0;
+			for (i = period1 + period2; i <= period1 + period2 + signal - 1; i++)
+			{
+				gainSum += TSI[i];
+			}
+			SIG[period1 + period2 + signal - 1] = gainSum / signal;
+			for (i = period1 + period2 + signal; i <= dlen; i++)
+			{
+				SIG[i] = SIG[i - 1] + Alfal3 * (TSI[i] - SIG[i - 1])
+			}
+			{
+				var TSIR1 = ""
+				if (TSI[dlen] > TSI[dlen - 1])
+				{
+					TSIR1 = "🔺"
+					Weightscore += 1
+					Trendscore += 1
+				}
+				else if (TSI[dlen] < TSI[dlen - 1])
+				{
+					TSIR1 = "🔻"
+					Weightscore -= 1
+					Trendscore -= 1
+				}
+				else
+				{
+					TSIR1 = " ↔️"
+				}
+			}
+			{
+				var TSIR2 = ""
+				if (SIG[dlen] > SIG[dlen - 1])
+				{
+					TSIR2 = "🔺"
+					Weightscore += 1
+					Trendscore += 1
+				}
+				else if (SIG[dlen] < SIG[dlen - 1])
+				{
+					TSIR2 = "🔻"
+					Weightscore -= 1
+					Trendscore -= 1
+				}
+				else
+				{
+					TSIR2 = " ↔️"
+				}
+			}
+			{
+				var TSIR3 = ""
+				if (TSI[dlen] > SIG[dlen])
+				{
+					TSIR3 = "➕"
+					Trendscore += 1
+					Weightscore += 3
+				}
+				else if (TSI[dlen] < SIG[dlen])
+				{
+					TSIR3 = "➖"
+					Trendscore -= 1
+					Weightscore -= 3
+				}
+				else
+				{
+					TSIR3 = " ↔️"
+				}
+			}
+			if (TSI[dlen] > 0 && SIG[dlen] > 0)
+			{
+				Weightscore += 6
+			}
+			else if (TSI[dlen] < 0 && SIG[dlen] < 0)
+			{
+				Weightscore -= 6
+			}
+		}
+		//*******************************************KST*******************************************
+		var roclen1 = 10;
+		var roclen2 = 15;
+		var roclen3 = 20;
+		var roclen4 = 30;
+		var smalen1kst = 10;
+		var smalen2kst = 10;
+		var smalen3kst = 10;
+		var smalen4kst = 15;
+		var siglenkst = 9;
+		var lenkst = [ih].length - 1;
+		var j = 0;
+		for (var i = 0; i < lenkst; i++)
+		{
+			if ([ih][i].QTotTran5J > 0)
+			{
+				j++
+			}
+			else
+			{}
+		}
+		lenkst = j;
+		var Ykst = [];
+		Ykst.lenght = lenkst;
+		var ROC1 = [];
+		ROC1.lenght = lenkst;
+		var ROC2 = [];
+		ROC2.lenght = lenkst;
+		var ROC3 = [];
+		ROC3.lenght = lenkst;
+		var ROC4 = [];
+		ROC4.lenght = lenkst;
+		var SMA1kst = [];
+		SMA1kst.lenght = lenkst;
+		var SMA2kst = [];
+		SMA2kst.lenght = lenkst;
+		var SMA3kst = [];
+		SMA3kst.lenght = lenkst;
+		var SMA4kst = [];
+		SMA4kst.lenght = lenkst;
+		var KST = [];
+		KST.lenght = lenkst;
+		var SIGkst = [];
+		SIGkst.lenght = lenkst;
+		var j = 0;
+		for (var i = 0; i <= lenkst + j; i++)
+		{
+			if ([ih][i].QTotTran5J > 0)
+			{
+				Ykst[i - j] = [ih][i].PDrCotVal;
+			}
+			else
+			{
+				j += 1
+			};
+		}
+		for (i = 0; i <= lenkst - roclen1; i++)
+		{
+			if (Ykst[i + roclen1] != 0)
+			{
+				ROC1[i] = (((Ykst[i] - Ykst[i + roclen1]) / Ykst[i + roclen1])) * 100;
+			}
+			else
+			{
+				ROC1[i] = 0;
+			}
+		}
+		for (i = 0; i <= lenkst - roclen2; i++)
+		{
+			if (Ykst[i + roclen2] != 0)
+			{
+				ROC2[i] = (((Ykst[i] - Ykst[i + roclen2]) / Ykst[i + roclen2])) * 100;
+			}
+			else
+			{
+				ROC2[i] = 0;
+			}
+		}
+		for (i = 0; i <= lenkst - roclen3; i++)
+		{
+			if (Ykst[i + roclen3] != 0)
+			{
+				ROC3[i] = (((Ykst[i] - Ykst[i + roclen3]) / Ykst[i + roclen3])) * 100;
+			}
+			else
+			{
+				ROC3[i] = 0;
+			}
+		}
+		for (i = 0; i <= lenkst - roclen4; i++)
+		{
+			if (Ykst[i + roclen4] != 0)
+			{
+				ROC4[i] = (((Ykst[i] - Ykst[i + roclen4]) / Ykst[i + roclen4])) * 100;
+			}
+			else
+			{
+				ROC4[i] = 0;
+			}
+		}
+		var sum1kst = 0;
+		var sum2kst = 0;
+		var sum3kst = 0;
+		var sum4kst = 0;
+		for (i = 0; i <= lenkst - smalen1kst; i++)
+		{
+			sum1kst = 0;
+			for (j = i; j < i + smalen1kst; j++)
+			{
+				sum1kst += ROC1[j];
+			}
+			SMA1kst[i] = sum1kst / smalen1kst;
+		}
+		for (i = 0; i <= lenkst - smalen2kst; i++)
+		{
+			sum2kst = 0;
+			for (j = i; j < i + smalen2kst; j++)
+			{
+				sum2kst += ROC2[j];
+			}
+			SMA2kst[i] = sum2kst / smalen2kst;
+		}
+		for (i = 0; i <= lenkst - smalen3kst; i++)
+		{
+			sum3kst = 0;
+			for (j = i; j < i + smalen3kst; j++)
+			{
+				sum3kst += ROC3[j];
+			}
+			SMA3kst[i] = sum3kst / smalen3kst;
+		}
+		for (i = 0; i <= lenkst - smalen4kst; i++)
+		{
+			sum4kst = 0;
+			for (j = i; j < i + smalen4kst; j++)
+			{
+				sum4kst += ROC4[j];
+			}
+			SMA4kst[i] = sum4kst / smalen4kst;
+		}
+		for (i = 0; i <= lenkst - Math.max(roclen1, roclen2, roclen3, roclen4) - Math.max(smalen1kst, smalen2kst, smalen3kst, smalen4kst); i++)
+		{
+			KST[i] = SMA1kst[i] * 1 + SMA2kst[i] * 2 + SMA3kst[i] * 3 + SMA4kst[i] * 4;
+		}
+		var sum5kst = 0;
+		for (i = 0; i <= lenkst - Math.max(roclen1, roclen2, roclen3, roclen4) - Math.max(smalen1kst, smalen2kst, smalen3kst, smalen4kst) - siglenkst; i++)
+		{
+			sum5kst = 0;
+			for (j = i; j < i + siglenkst; j++)
+			{
+				sum5kst += KST[j];
+			}
+			SIGkst[i] = sum5kst / siglenkst;
+		}
+		var KSTR1 = ""
+		if (KST[0] > KST[1])
+		{
+			KSTR1 = "🔺"
+			Weightscore += 1
+			Trendscore += 1
+		}
+		else if (KST[0] < KST[1])
+		{
+			KSTR1 = "🔻"
+			Weightscore -= 1
+			Trendscore -= 1
+		}
+		else
+		{
+			KSTR1 = " ↔️"
+		}
+		var KSTR2 = ""
+		if (SIGkst[0] > SIGkst[1])
+		{
+			KSTR2 = "🔺"
+			Weightscore += 1
+			Trendscore += 1
+		}
+		else if (SIGkst[0] < SIGkst[1])
+		{
+			KSTR2 = "🔻"
+			Weightscore -= 1
+			Trendscore -= 1
+		}
+		else
+		{
+			KSTR2 = " ↔️"
+		}
+		var KSTC = ""
+		if (KST[0] > SIGkst[0])
+		{
+			KSTC = "➕"
+			Trendscore += 1
+			Weightscore += 3
+		}
+		else if (KST[0] < SIGkst[0])
+		{
+			KSTC = "➖"
+			Trendscore -= 1
+			Weightscore -= 3
+		}
+		else
+		{
+			KSTC = " ↔️"
+		}
+		if (KST[0] > 0 && SIGkst[0] > 0)
+		{
+			Weightscore += 7
+			star += "⭐️"
+			starplus1 += 1
+		}
+		else if (KST[0] < 0 && SIGkst[0] < 0)
+		{
+			Weightscore -= 7
+		}
+		//*******************************************MACD*******************************************
+		var shortPeriod = 12
+		var longPeriod = 26
+		var signalPeriod = 9
+		var dataLength = [ih].length
+		var indexmc = 0
+		var validCount = 0
+		var diffLength = 0
+		var smamcd = 0
+		var summcd = 0
+		var factor1mcd = 0
+		var factor2mcd = 0
+		var factor3mcd = 0
+		var totalPeriod = signalPeriod + longPeriod
+		for (indexmc = 0; indexmc < dataLength; indexmc++)
+		{
+			if ([ih][indexmc].QTotTran5J > 0)
+			{
+				validCount++
+			}
+			else
+			{}
+		}
+		diffLength = validCount
+		var emaShort = [];
+		emaShort.length = diffLength
+		var emaLong = [];
+		emaLong.length = diffLength
+		var macdmc = [];
+		macdmc.length = diffLength
+		var macSignal = [];
+		macSignal.length = diffLength
+		var macHist = [];
+		macHist.length = diffLength
+		var closePrices = [];
+		closePrices.length = diffLength
+		validCount = -1
+		for (indexmc = dataLength - 1; indexmc >= 0; indexmc--)
+		{
+			if ([ih][indexmc].QTotTran5J > 0)
+			{
+				validCount++
+				closePrices[validCount] = [ih][indexmc].PDrCotVal
+			}
+			else
+			{}
+		}
+		factor1mcd = 2 / (shortPeriod + 1)
+		factor2mcd = 2 / (longPeriod + 1)
+		factor3mcd = 2 / (signalPeriod + 1)
+		summcd = 0
+		for (indexmc = 0; indexmc < shortPeriod; indexmc++)
+		{
+			summcd += closePrices[indexmc]
+		}
+		smamcd = summcd / shortPeriod
+		emaShort[shortPeriod - 1] = smamcd
+		for (indexmc = shortPeriod; indexmc < diffLength; indexmc++)
+		{
+			emaShort[indexmc] = factor1mcd * (closePrices[indexmc] - emaShort[indexmc - 1]) + emaShort[indexmc - 1]
+		}
+		summcd = 0
+		for (indexmc = 0; indexmc < longPeriod; indexmc++)
+		{
+			summcd += closePrices[indexmc]
+		}
+		smamcd = summcd / longPeriod
+		emaLong[longPeriod - 1] = smamcd
+		for (indexmc = longPeriod; indexmc < diffLength; indexmc++)
+		{
+			emaLong[indexmc] = factor2mcd * (closePrices[indexmc] - emaLong[indexmc - 1]) + emaLong[indexmc - 1]
+		}
+		for (indexmc = longPeriod - 1; indexmc < diffLength; indexmc++)
+		{
+			macdmc[indexmc] = emaShort[indexmc] - emaLong[indexmc]
+		}
+		for (indexmc = longPeriod - 1; indexmc < totalPeriod - 2; indexmc++) summcd = 0
+		{
+			summcd += macdmc[indexmc]
+		}
+		smamcd = summcd / signalPeriod
+		macSignal[totalPeriod - 2] = smamcd
+		for (indexmc = totalPeriod - 1; indexmc < diffLength; indexmc++)
+		{
+			macSignal[indexmc] = factor3mcd * (macdmc[indexmc] - macSignal[indexmc - 1]) + macSignal[indexmc - 1]
+			macHist[indexmc] = macdmc[indexmc] - macSignal[indexmc]
+		}
+		var MACDR1 = ""
+		if (macdmc[diffLength - 1] > macdmc[diffLength - 2])
+		{
+			MACDR1 = "🔺"
+			Weightscore += 2
+			Trendscore += 1
+		}
+		else if (macdmc[diffLength - 1] < macdmc[diffLength - 2])
+		{
+			MACDR1 = "🔻"
+			Weightscore -= 2
+			Trendscore -= 1
+		}
+		else
+		{
+			MACDR1 = " ↔️"
+		}
+		var MACDSR2 = ""
+		if (macSignal[diffLength - 1] > macSignal[diffLength - 2])
+		{
+			MACDSR2 = "🔺"
+			Weightscore += 1
+			Trendscore += 1
+		}
+		else if (macSignal[diffLength - 1] < macSignal[diffLength - 2])
+		{
+			MACDSR2 = "🔻"
+			Weightscore -= 1
+			Trendscore -= 1
+		}
+		else
+		{
+			MACDSR2 = " ↔️"
+		}
+		var MACDC = ""
+		if (macdmc[diffLength - 1] > macSignal[diffLength - 1])
+		{
+			MACDC = "➕"
+			Trendscore += 1
+			Weightscore += 7
+			star += "⭐️"
+			starplus1 += 1
+		}
+		else if (macdmc[diffLength - 1] < macSignal[diffLength - 1])
+		{
+			MACDC = "➖"
+			Trendscore -= 1
+			Weightscore -= 7
+		}
+		else
+		{
+			MACDC = " ↔️"
+		}
+		var MACDH = ""
+		if (macHist[diffLength - 1] > macHist[diffLength - 2])
+		{
+			MACDH = "🔺"
+			Weightscore += 1
+			Trendscore += 1
+		}
+		else if (macHist[diffLength - 1] < macHist[diffLength - 2])
+		{
+			MACDH = "🔻"
+			Weightscore -= 1
+			Trendscore -= 1
+		}
+		else
+		{
+			MACDH = " ↔️"
+		}
+		//*******************************************برایند روند*******************************************
+		var Trendscore1 = ""
+		if ((Trendscore + IchiScore + WeightscoreADX) > 0)
+		{
+			Trendscore1 = "🔺"
+		}
+		else if ((Trendscore + IchiScore + WeightscoreADX) < 0)
+		{
+			Trendscore1 = "🔻"
+		}
+		else
+		{
+			Trendscore1 = " ↔️"
+		}
+		//*******************************************قدرت روند*******************************************
+		var Weightscore1 = ""
+		if ((Weightscore + IchiScore + WeightscoreADX) > 0)
+		{
+			Weightscore1 = "🔺"
+		}
+		else if ((Weightscore + IchiScore + WeightscoreADX) < 0)
+		{
+			Weightscore1 = "🔻"
+		}
+		else
+		{
+			Weightscore1 = " ↔️"
+		}
+		if ((Weightscore) > 70)
+		{
+			starplus = "(اشباع خرید)"
+		}
+		else if ((Weightscore) < -70)
+		{
+			starplus = "(اشباع فروش)"
+		}
+		else
+		{
+			starplus = ""
+		}
+		//*******************************************بررسی*******************************************
+		var AIscore = 0;
+		var status = "";
+		var boardReading = score;
+		var priceAction = (parseFloat(Pscore + CPscore));
+		var trend = (parseFloat(Trendscore + IchiScore + WeightscoreADX));
+		var alphaIndicator = (parseFloat(Weightscore + IchiScore + WeightscoreADX));
+		var alphaStars = starplus1;
+		var ttrendScore = 0;
+		//---------
+		if (trend > 0)
+		{
+			AIscore = AIscore + 10;
+		}
+		else if (trend < 0)
+		{
+			AIscore = AIscore - 10;
+		}
+		//---------
+		if (boardReading >= 80)
+		{
+			AIscore = AIscore + 20;
+		}
+		else if (boardReading >= 60 && boardReading < 80)
+		{
+			AIscore = AIscore + 16;
+		}
+		else if (boardReading >= 40 && boardReading < 60)
+		{
+			AIscore = AIscore + 12;
+		}
+		else if (boardReading >= 20 && boardReading < 40)
+		{
+			AIscore = AIscore + 8;
+		}
+		else if (boardReading > 0 && boardReading < 20)
+		{
+			AIscore = AIscore + 4;
+		}
+		else if (boardReading <= 0 && boardReading > -9.6)
+		{
+			AIscore = AIscore - 4;
+		}
+		else if (boardReading <= -9.6 && boardReading > -19.2)
+		{
+			AIscore = AIscore - 8;
+		}
+		else if (boardReading <= -19.2 && boardReading > -28.8)
+		{
+			AIscore = AIscore - 12;
+		}
+		else if (boardReading <= -28.8 && boardReading > -38.4)
+		{
+			AIscore = AIscore - 16;
+		}
+		else if (boardReading <= -38.4)
+		{
+			AIscore = AIscore - 20;
+		}
+		//---------
+		if (priceAction >= 14.4)
+		{
+			AIscore = AIscore + 15;
+		}
+		else if (priceAction >= 10.8 && priceAction < 14.4)
+		{
+			AIscore = AIscore + 12;
+		}
+		else if (priceAction >= 7.2 && priceAction < 10.8)
+		{
+			AIscore = AIscore + 9;
+		}
+		else if (priceAction >= 3.6 && priceAction < 7.2)
+		{
+			AIscore = AIscore + 6;
+		}
+		else if (priceAction > 0 && priceAction < 3.6)
+		{
+			AIscore = AIscore + 3;
+		}
+		else if (priceAction <= 0 && priceAction > -3.6)
+		{
+			AIscore = AIscore - 3;
+		}
+		else if (priceAction <= -3.6 && priceAction > -7.2)
+		{
+			AIscore = AIscore - 6;
+		}
+		else if (priceAction <= -7.2 && priceAction > -10.8)
+		{
+			AIscore = AIscore - 9;
+		}
+		else if (priceAction <= -10.8 && priceAction > -14.4)
+		{
+			AIscore = AIscore - 12;
+		}
+		else if (priceAction <= -14.4)
+		{
+			AIscore = AIscore - 15;
+		}
+		//---------
+		if (alphaIndicator >= 80)
+		{
+			AIscore = AIscore + 25;
+		}
+		else if (alphaIndicator >= 60 && alphaIndicator < 80)
+		{
+			AIscore = AIscore + 20;
+		}
+		else if (alphaIndicator >= 40 && alphaIndicator < 60)
+		{
+			AIscore = AIscore + 15;
+		}
+		else if (alphaIndicator >= 20 && alphaIndicator < 40)
+		{
+			AIscore = AIscore + 10;
+		}
+		else if (alphaIndicator > 0 && alphaIndicator < 20)
+		{
+			AIscore = AIscore + 5;
+		}
+		else if (alphaIndicator <= 0 && alphaIndicator > -20)
+		{
+			AIscore = AIscore - 5;
+		}
+		else if (alphaIndicator <= -20 && alphaIndicator > -40)
+		{
+			AIscore = AIscore - 10;
+		}
+		else if (alphaIndicator <= -40 && alphaIndicator > -60)
+		{
+			AIscore = AIscore - 15;
+		}
+		else if (alphaIndicator <= -60 && alphaIndicator > -80)
+		{
+			AIscore = AIscore - 20;
+		}
+		else if (alphaIndicator <= -80)
+		{
+			AIscore = AIscore - 25;
+		}
+		//---------
+		if (alphaStars == 7)
+		{
+			AIScore = AIscore + 30;
+		}
+		else if (alphaStars == 6)
+		{
+			AIscore = AIscore + 26;
+		}
+		else if (alphaStars == 5)
+		{
+			AIscore = AIscore + 22;
+		}
+		else if (alphaStars == 4)
+		{
+			AIscore = AIscore + 18;
+		}
+		else if (alphaStars == 3)
+		{
+			AIscore = AIscore + 14;
+		}
+		else if (alphaStars == 2)
+		{
+			AIscore = AIscore + 10;
+		}
+		else if (alphaStars == 1)
+		{
+			AIscore = AIscore + 6;
+		}
+		else if (alphaStars == 0)
+		{
+			AIscore = AIscore - 30;
+		}
+		//---------
+		if (AIscore >= 80)
+		{
+			status = "صعودی بسیار قوی";
+		}
+		else if (AIscore >= 60 && AIscore < 80)
+		{
+			status = "صعودی قوی";
+		}
+		else if (AIscore >= 40 && AIscore < 60)
+		{
+			status = "صعودی متوسط";
+		}
+		else if (AIscore >= 20 && AIscore < 40)
+		{
+			status = "صعودی ضعیف";
+		}
+		else if (AIscore > 0 && AIscore < 20)
+		{
+			status = "خنثی";
+		}
+		else if (AIscore <= 0 && AIscore > -20)
+		{
+			status = "خنثی";
+		}
+		else if (AIscore <= -20 && AIscore > -40)
+		{
+			status = "نزولی ضعیف";
+		}
+		else if (AIscore <= -40 && AIscore > -60)
+		{
+			status = "نزولی متوسط";
+		}
+		else if (AIscore <= -60 && AIscore > -80)
+		{
+			status = "نزولی قوی";
+		}
+		else if (AIscore <= -80)
+		{
+			status = "نزولی بسیار قوی";
+		}
+		//*******************************************زمان*******************************************
+		let options = {
+			weekday: "short"
+			, year: "numeric"
+			, month: "2-digit"
+			, day: "numeric"
+		};
+		var ntime = (new Date())
+			.toLocaleDateString("fa", options) + ' | ' + (new Date())
+			.toLocaleTimeString("fa");
+		//*******************************************تبدیل حروف عربی به فارسی*******************************************
+		String.prototype.replaceAll = function(obj)
+		{
+			let finalString = '';
+			let word = this;
+			for (let each of word)
+			{
+				for (const o in obj)
+				{
+					const value = obj[o];
+					if (each == o)
+					{
+						each = value;
+					}
+				}
+				finalString += each;
+			}
+			return finalString;
+		};
+		if (((l18))
+			.match('[ك]') || ((l18))
+			.match('[ي]'))
+		{
+			var Namad = ((l18))
+				.replaceAll(
+				{
+					"ك": "ک"
+					, "ي": "ی"
+				});
+		}
+		else
+		{
+			var Namad = (l18);
+		}
+		//*******************************************نام نماد*******************************************
+		if (Namad == Symbol1 || Namad == Symbol2 || Namad == Symbol3 || Namad == Symbol4 || Namad == Symbol5)
+		{
+			//*******************************************شاخص کل*******************************************
+			var oX4 = new XMLHttpRequest();
+			oX4.open('GET', "https://api2.tablokhani.com/Process/Market", false);
+			oX4.send();
+			var Shakhes0 = oX4.responseText;
+			var Shakhes = JSON.parse(Shakhes0);
+			var shakesh_kol = Number(Shakhes.IndexLastValue)
+			var darsad_taghir = Number(Shakhes.IndexChange);
+			//*******************************************لینکها*******************************************
+			let IDChannel = encodeURIComponent("https://t.me/BourseXtreme");
+			//*******************************************پیام ربات تلگرام*******************************************
+			let Post = "";
+			Post += '%0A' + "☑️ " + "شاخص کل: " + numberWithCommas(shakesh_kol) + " (" + (darsad_taghir) + "%)"
+			Post += '%0A' + "✅ " + '\xa0نماد:\xa0' + '%23' + '*' + Namad + '*' + "  |  بازار: " + bazarr[row.flow]
+			Post += '%0A' + "گروه: " + G_Code
+			Post += '%0A' + "تعداد کل سهام شرکت: " + numberWithCommas((z))
+			Post += '%0A' + "ارزش بازار: " + (ArzeshB1)
+			Post += '%0A' + "اندازه شرکت:" + (andazesherkat)
+			Post += '%0A' + "EPS: " + (eps) + (Zian)
+			Post += '%0A' + "P/E: " + (pe)
+			Post += '%0A' + "➖➖➖➖➖"
+			Post += '%0A' + "⚠️ " + "دیتا: " + Notif
+			Post += '%0A' + "💵" + ' دیروز: ' + (py)
+			Post += '%0A' + "💵" + ' آخرين: ' + (pl) + " (" + (plp) + "%" + ")" + (AkharinGH1)
+			Post += '%0A' + "💵" + ' پایانی: ' + (pc) + " (" + (pcp) + "%" + ")" + (GHPayani1)
+			Post += '%0A' + "🔺" + 'بیشترین: ' + (pmax) + " (" + (BishtarinGh)
+				.toFixed(2) + "%" + ")"
+			Post += '%0A' + "🔻" + 'کمترین: ' + (pmin) + " (" + (KamtarinGh)
+				.toFixed(2) + "%" + ")"
+			Post += '%0A' + "🟩" + " حقیقی: " + numberWithCommas((ct)
+				.Buy_I_Volume) + " | تعداد: " + ((ct)
+				.Buy_CountI) + " (" + (DKhHaghighi) + "%)"
+			Post += '%0A' + "مبلغ: " + (VorudHaghighi)
+				.toFixed(2) + ' سرانه: ' + '*' + saraneh_kh1 + '*'
+			Post += '%0A' + "میانگین سرانه 3 ماه: " + (TSaraneKhHa3) + " | 12 ماه: " + (TSaraneKhHa12)
+			Post += '%0A' + "🟥" + " حقیقی: " + numberWithCommas((ct)
+				.Sell_I_Volume) + " | تعداد: " + ((ct)
+				.Sell_CountI) + " (" + (DFHaghighi) + "%)"
+			Post += '%0A' + "مبلغ: " + (KhorujHaghighi)
+				.toFixed(2) + ' سرانه: ' + '*' + saraneh_f1 + '*'
+			Post += '%0A' + "میانگین سرانه 3 ماه: " + (TSaraneFHa3) + " | 12 ماه: " + (TSaraneFHa12)
+			Post += '%0A' + "💡" + "قدرت: " + (GhodratT)
+			Post += '%0A' + "میانگین قدرت 3 ماه: " + (MGHHa3)
+				.toFixed(2) + " | 12 ماه: " + (MGHHa12)
+				.toFixed(2)
+			Post += '%0A' + "تغییر مالکیت: " + numberWithCommas(BHaghighi1) + " (" + (BHaghighi) + ") " + (CheHaHo1)
+			Post += '%0A' + "🟩" + " حقوقی: " + numberWithCommas((ct)
+				.Buy_N_Volume) + " | تعداد: " + ((ct)
+				.Buy_CountN) + " (" + (DKhHoghughi) + "%)"
+			Post += '%0A' + "مبلغ: " + (VorudHoghughi)
+				.toFixed(2) + " سرانه: " + (SaraneHo1)
+			Post += '%0A' + "میانگین سرانه 3 ماه: " + (TSaraneKhHo3) + " | 12 ماه: " + (TSaraneKhHo12)
+			Post += '%0A' + "🟥" + " حقوقی: " + numberWithCommas((ct)
+				.Sell_N_Volume) + " | تعداد: " + ((ct)
+				.Sell_CountN) + " (" + (DFHoghughi) + "%)"
+			Post += '%0A' + "مبلغ: " + (KhorujHoghughi)
+				.toFixed(2) + " سرانه: " + (SaraneHo2)
+			Post += '%0A' + "میانگین سرانه 3 ماه: " + (TSaraneFHo3) + " | 12 ماه: " + (TSaraneFHo12)
+			Post += '%0A' + "💡" + "قدرت: " + (GhodtarHoG)
+			Post += '%0A' + "میانگین قدرت 3 ماه: " + (MGHHo3)
+				.toFixed(2) + " | 12 ماه: " + (MGHHo12)
+				.toFixed(2)
+			Post += '%0A' + "تغییر مالکیت: " + numberWithCommas(BHoghughi1) + " (" + (BHoghughi) + ") " + (CheHaHo2)
+			Post += '%0A' + "💳" + ' پول: ' + (IOMoney)
+			Post += '%0A' + "قدرت: " + "(" + (powerIOMoney) + ")" + (powerIOMoneyC)
+			Post += '%0A' + "میانگین 3ماه: " + (IOMoney3mah)
+			Post += '%0A' + "میانگین 12ماه: " + (IOMoney12mah)
+			Post += '%0A' + "📊" + " حجم مبنا: " + numberWithCommas((bvol))
+			Post += '%0A' + "📊" + " حجم معاملات: " + numberWithCommas((tvol)) + takmilH
+			Post += '%0A' + "📊" + " هیستوگرام: " + (HajmHistogram)
+			Post += '%0A' + "هفته: " + numberWithCommas(EbHafte11) + " (" + (EbHafte) + ")" + " | 1ماه: " + numberWithCommas(EbMah11) + " (" + (EbMah) + ")"
+			Post += '%0A' + "3ماه: " + numberWithCommas([is5]) + " (" + (Eb3Mah) + ")" + " | 12ماه: " + numberWithCommas([is6]) + " (" + (Eb12Mah) + ")"
+			Post += '%0A' + "💲" + " ارزش معاملات: " + (Arzesh1)
+			Post += '%0A' + "هفته: " + (ArzeshMoamelatA1) + " (" + (AzMah5) + ")" + " | 1ماه: " + (ArzeshMoamelatA2) + " (" + (AzMah20) + ")"
+			Post += '%0A' + "3ماه: " + (Arzesh2) + " (" + (AzMah60) + ")" + " | 12ماه: " + (Arzesh3) + " (" + (AzMah240) + ")"
+			Post += '%0A' + ""
+			Post += '%0A' + "➕" + " مثبت 3 ماه: " + '*' + [is26] + " روز " + "(" + [is28] + "%" + ")" + '*'
+			Post += '%0A' + "➖" + " منفی 3 ماه: " + [is18] + " روز " + "(" + [is20] + "%" + ")"
+			Post += '%0A' + "➕" + " مثبت 12 ماه: " + '*' + [is27] + " روز " + "(" + [is29] + "%" + ")" + '*'
+			Post += '%0A' + "➖" + " منفی 12 ماه: " + [is19] + " روز " + "(" + [is21] + "%" + ")"
+			Post += '%0A' + "برایند روزهای باز و بسته:"
+			Post += '%0A' + "3ماه: " + (Naghd31) + "%" + " | 12ماه: " + (Naghd121) + "%"
+			Post += '%0A' + "صف فروش مطلق " + (Naghd4) + " روز: " + (Naghd5) + " روز کاری"
+			Post += '%0A' + "💰" + " نقدشوندگی " + (Naghd4) + " روز: " + (Naghd6) + "%"
+			Post += '%0A' + ""
+			Post += '%0A' + "📝 " + "در " + '*' + "12" + '*' + " ماه گذشته میزان" + KharidHa12mahe1 + ForushHa12mahe1 + "و میزان" + KharidHo12mahe1 + ForushHo12mahe1
+			Post += '%0A' + "در " + '*' + "3" + '*' + " ماه گذشته میزان" + KharidHa3mahe1 + ForushHa3mahe1 + "و میزان" + KharidHo3mahe1 + ForushHo3mahe1
+			Post += '%0A' + "➖➖➖➖➖"
+			Post += '%0A' + "💰" + ' ورود پول هوشمند:' + (hooshmand1) + (hooshmand2) + (hooshmand3) + (hooshmand4)
+			Post += '%0A' + "💰" + ' خروج پول هوشمند:' + (hooshmandkh1) + (hooshmandkh2) + (hooshmandkh3)
+			Post += '%0A' + "🔥" + ' پول داغ:' + (Daagh1) + (Daagh2) + (Daagh3)
+			Post += '%0A' + "💳" + ' خریدهای حمایتی:' + (OrderH)
+			Post += '%0A' + "🔁" + ' کدبه‌کد حقوقی به حقیقی:' + (codbecodHoHa) + (codbecodHoHa1)
+			Post += '%0A' + "🔁" + ' کدبه‌کد حقیقی به حقوقی:' + (codbecodHaHo) + (codbecodHaHo1)
+			Post += '%0A' + "👥" + ' احتمال خرید گروهی:' + (Group)
+			Post += '%0A' + "🕰" + ' الگوی ساعت:' + (Osaat)
+			Post += '%0A' + "✔️" + ' الگوی تیک:' + (Tik)
+			Post += '%0A' + "📈" + ' نوسان روزانه:' + (Frequency)
+			Post += '%0A' + "➕" + ' مثبت فردا:' + (Tomorrow)
+			Post += '%0A' + "⚠️" + " صف: " + (LineSaf1) + (LineSaf2)
+			Post += '%0A' + "➖➖➖➖➖"
+			Post += '%0A' + "پرایس اکشن:"
+			Post += '%0A' + "1️⃣" + Candle1 + Candle2 + Candle3 + Candle4 + Candle5 + Candle6 + Candle7 + Candle8 + Candle9 + Candle10 + Candle11 + Candle12 + Candle13 + Candle14 + Candle15 + Candle16 + Candle17 + Candle18 + Candle19
+			Post += '%0A' + "2️⃣" + Candle20 + Candle21 + Candle22 + Candle23 + Candle24 + Candle25 + Candle26 + Candle27 + Candle28 + Candle29 + Candle30 + Candle31 + Candle32 + Candle33 + Candle34 + Candle35
+			Post += '%0A' + "3️⃣" + Candle36 + Candle37 + Candle38 + Candle39 + Candle40 + Candle41 + Candle42 + Candle43 + Candle44 + Candle45
+			Post += '%0A' + "کندل هفتگی: " + (CandleW5)
+			Post += '%0A' + "الگوی پین بار صعودی (تایم فریم هفتگی):" + (PinBWp)
+			Post += '%0A' + "پنج کندل آخر (Heikin Ashi):"
+			Post += '%0A' + "➡️" + (heikinashi5) + (heikinashi4) + (heikinashi3) + (heikinashi2) + (heikinashi1) + (hasNoShadow)
+			Post += '%0A' + "بیشترین ارزش معاملات در بازه‌ی 20 روز:"
+			Post += '%0A' + "POC: " + (VPday1)
+			Post += '%0A' + "Value: " + (VPday3)
+				.toFixed(3) + " B"
+			Post += '%0A' + "50 روز:"
+			Post += '%0A' + (VPday4)
+			Post += '%0A' + (VPday6)
+				.toFixed(3) + " B"
+			Post += '%0A' + "100 روز:"
+			Post += '%0A' + (VPday7)
+			Post += '%0A' + (VPday9)
+				.toFixed(3) + " B"
+			Post += '%0A' + "مقاومت 100 روز: (" + (uplined1)
+				.toFixed(2) + "%)"
+			Post += '%0A' + "50 روز: (" + (uplined2)
+				.toFixed(2) + "%)"
+			Post += '%0A' + "20 روز: (" + (uplined3)
+				.toFixed(2) + "%)"
+			Post += '%0A' + "میدلاین: 20=" + (magicstick3) + " 50=" + (magicstick2) + " 100=" + (magicstick1)
+			Post += '%0A' + "حمایت 20 روز: (" + (lowlined3)
+				.toFixed(2) + "%)"
+			Post += '%0A' + "50 روز: (" + (lowlined2)
+				.toFixed(2) + "%)"
+			Post += '%0A' + "100 روز: (" + (lowlined1)
+				.toFixed(2) + "%)"
+			Post += '%0A' + 'اصلاح از سقف: ' + (FSmaxX)
+				.toFixed(1) + '% (از ' + (FSmaxP) + ' در ' + (FSmaxD) + ' روز قبل)'
+			Post += '%0A' + 'صعود از کف: ' + (FSminX)
+				.toFixed(1) + '% (از ' + (FSminP) + ' در ' + (FSminD) + ' روز قبل)'
+			Post += '%0A' + "موقعیت از 0 تا 100: " + (MogheyiatGh)
+			Post += '%0A' + "میانگین وزنی سود 10 روزه: " + (SoodP10)
+			Post += '%0A' + "➖➖➖➖➖"
+			Post += '%0A' + "اندیکاتورها:"
+			Post += '%0A' + "Ichimoku: " + "🔵" + Math.round(TenkanD(0)) + SignalTK2 + "🔴" + Math.round(KijunD(0)) + SignalTK3 + SignalTK4 + SignalTK1
+			Post += '%0A' + SignalCT
+			Post += '%0A' + SignalCK
+			Post += '%0A' + SignalCCloud + SignalCloud1 + "%" + (SignalZC2)
+				.toFixed(2) + SignalCloud1Cross
+			Post += '%0A' + SignalCCloud2 + SignalCloud2 + "%" + (SignalZC4)
+				.toFixed(2) + SignalCloud2Cross
+			Post += '%0A' + SignalChikou1
+			Post += '%0A' + SignalTC + SignalCloud1
+			Post += '%0A' + SignalKC + SignalCloud1
+			Post += '%0A' + SignalChikou2
+			Post += '%0A' + SignalChikou3
+			Post += '%0A' + SignalChikou4
+			Post += '%0A' + '*' + "امتیاز ایچیموکو از -18 تا 18:" + " (" + (IchiScore) + ")" + '*'
+			Post += '%0A' + "BB: " + (BOLINGER)
+			Post += '%0A' + "BB %B: " + PB[0].toFixed(2) + (BBR) + (BBMR)
+			Post += '%0A' + "TEDE: " + "🔵" + Math.round(TEMA2[0]) + (TEMA2R) + "🔴" + Math.round(DEMA1[0]) + (DEMA1R) + (TEMADEMACR)
+			Post += '%0A' + "EMA (5 hlc3): " + Math.round((ema5[0])) + (EMAR) + (EMARS)
+			Post += '%0A' + "اسیلاتورها:"
+			Post += '%0A' + "RSI: " + (RSITIME) + (Ravand_RSI)
+			Post += '%0A' + "MFI: " + MFI(0, 14)
+				.toFixed(2) + (Ravand_MFI)
+			Post += '%0A' + "پایش رفتار:"
+			Post += '%0A' + "امروز: " + (Analiz1) + (Analiz2)
+			Post += '%0A' + "پنج روز: " + (Analiz5) + (Analiz6)
+			Post += '%0A' + "چهارده روز: " + (Analiz7) + (Analiz8)
+			Post += '%0A' + "CCI: " + (CCI1) + (CCIR)
+			Post += '%0A' + "CMO: " + (CHNM(0, 9))
+				.toFixed(2) + (MomR)
+			Post += '%0A' + "W %R: " + (Williams(14, 0))
+				.toFixed(2) + (WilliamsR1)
+			Post += '%0A' + "AO: " + (ao[dle]) + (Rawesomeoscillator)
+			Post += '%0A' + "Stoch: " + "🔵" + (Ks[dlen])
+				.toFixed(2) + (StoR1) + "🔴" + (Ds[dlen])
+				.toFixed(2) + (StoR2) + (StoC)
+			Post += '%0A' + "Aroon: " + "🟠" + (Aroon1)
+				.toFixed(2) + (AroonR1) + "🔵" + (Aroon2)
+				.toFixed(2) + (AroonR2) + (AroonC)
+			Post += '%0A' + "ADX: " + (ADX1) + (ADX4R) + (ADX1R)
+			Post += '%0A' + "🟢" + (HamrastaADXR1) + (ADX2) + (ADX2R) + (ADX5R) + "🔴" + (HamrastaADXR2) + (ADX3) + (ADX3R)
+			Post += '%0A' + "امتیاز ADX از -8 تا 8: " + "(" + (WeightscoreADX) + ")"
+			Post += '%0A' + "TSI: " + "🔵" + (TSI[dlen])
+				.toFixed(4) + (TSIR1) + "🔴" + (SIG[dlen])
+				.toFixed(4) + (TSIR2) + (TSIR3)
+			Post += '%0A' + "KST: " + "🟢" + KST[0].toFixed(2) + (KSTR1) + "🔴" + SIGkst[0].toFixed(2) + (KSTR2) + (KSTC)
+			Post += '%0A' + "MACD Histogram: " + Math.round(macHist[diffLength - 1]) + (MACDH)
+			Post += '%0A' + "🔵MACD: " + Math.round(macdmc[diffLength - 1]) + (MACDR1) + "🟠Signal: " + Math.round(macSignal[diffLength - 1]) + (MACDSR2) + (MACDC)
+			Post += '%0A' + "➖➖➖➖➖"
+			Post += '%0A' + "امتیاز تابلوخوانی از -48 تا 100: " + "(" + (score) + ")"
+			Post += '%0A' + "امتیاز پرایس اکشن از -18 تا 18: (" + (parseFloat(Pscore) + (CPscore)) + ")"
+			Post += '%0A' + "برایند روند روزانه تکنیکال:" + (Trendscore1)
+			Post += '%0A' + "آلفا: (" + (Weightscore) + ")" + (Weightscore1) + (starplus) + (star)
+			Post += '%0A' + '```' + 'BourseXtreme-Score' + '%0A' + 'وضعیت آخرین روز معاملاتی (' + (l30) + ') از -100 تا 100 برابر: (' + (AIscore) + ') یعنی ' + (status) + '```'
+			Post += '%0A' + "➖➖➖➖➖"
+			Post += '%0A' + "🗓 " + ntime
+			Post += '%0A' + "🆔" + '*' + IDChannel + '*'
+			//*******************************************ذخیره سشن استوریچ*******************************************
+			Anon = sessionStorage.getItem("Newnames")
+			if (Anon != null)
+			{
+				Anon = Anon.split(",");
+			}
+			else Anon = []
+			if (Anon.includes((l18)) != 1)
+			{
+				Anon.push((l18));
+				sessionStorage.setItem("Newnames", Anon);
+				TseHitSender(Post)
+			}
+			return true;
+		}
+		return true;
+	}
+}();

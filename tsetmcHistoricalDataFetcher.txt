@@ -1,0 +1,72 @@
+//BourseXtreme
+//Anonymous
+function fetchStockData(stockSymbol, numberOfDays)
+{
+	const url = `https://old.tsetmc.com/tsev2/data/InstTradeHistory.aspx?i=${stockSymbol}&Top=${numberOfDays}`;
+	const request = new XMLHttpRequest();
+	request.open('GET', url, false);
+	request.send();
+	return request.responseText;
+}
+
+function tsetmcHistoricalDataFetcher(numberOfDays)
+{
+	if (typeof [ih].dataPopulated === 'undefined' || [ih].numberOfDays !== numberOfDays)
+	{
+		const rawData = fetchStockData(key, numberOfDays)
+			.split(';');
+        [ih] = [];
+		for (const dayDataString of rawData)
+		{
+			const dayData = dayDataString.split('@');
+			if (dayData.length >= 10)
+			{
+                [ih].push(
+				{
+					ZTotTran: parseFloat(dayData[9])
+					, QTotTran5J: parseFloat(dayData[8])
+					, QTotCap: parseFloat(dayData[7])
+					, PriceYesterday: parseFloat(dayData[6])
+					, PriceFirst: parseFloat(dayData[5])
+					, PDrCotVal: parseFloat(dayData[4])
+					, PClosing: parseFloat(dayData[3])
+					, PriceMin: parseFloat(dayData[2])
+					, PriceMax: parseFloat(dayData[1])
+					, DEven: parseFloat(dayData[0])
+				});
+			}
+		}
+        [ih].dataPopulated = true;
+        [ih].numberOfDays = numberOfDays;
+		[ih] = [ih].filter(day => day.QTotCap !== 0);
+		for (let i = [ih].length - 2; i > 0; i--)
+		{
+			if ([ih][i + 1].PClosing !== [ih][i].PriceYesterday)
+			{
+				const adjustmentFactor = [ih][i + 1].PClosing / [ih][i].PriceYesterday;
+				for (let j = i + 1; j < [ih].length; j++)
+				{
+                    [ih][j].PriceFirst = Math.round([ih][j].PriceFirst / adjustmentFactor);
+                    [ih][j].PClosing = Math.round([ih][j].PClosing / adjustmentFactor);
+                    [ih][j].PDrCotVal = Math.round([ih][j].PDrCotVal / adjustmentFactor);
+                    [ih][j].PriceMin = Math.round([ih][j].PriceMin / adjustmentFactor);
+                    [ih][j].PriceMax = Math.round([ih][j].PriceMax / adjustmentFactor);
+                    [ih][j].PriceYesterday = Math.round([ih][j].PriceYesterday / adjustmentFactor);
+				}
+			}
+		}
+	}
+	if ([ih][0].ZTotTran !== (tno) || [ih][0].QTotCap !== (tval) || [ih][0].PDrCotVal !== (pl) || [ih][0].PClosing !== (pc))
+	{
+        [ih][0].PClosing = (pc);
+        [ih][0].PDrCotVal = (pl);
+        [ih][0].ZTotTran = (tno);
+        [ih][0].QTotTran5J = (tvol);
+        [ih][0].QTotCap = (tval);
+        [ih][0].PriceMin = (pmin);
+        [ih][0].PriceMax = (pmax);
+        [ih][0].PriceYesterday = (py);
+        [ih][0].PriceFirst = (pf);
+	}
+}
+tsetmcHistoricalDataFetcher(1001); //تعداد روز دلخواه را وارد کنید
